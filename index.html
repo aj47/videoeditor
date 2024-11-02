@@ -224,6 +224,9 @@
                 hasLabeledBlocks() {
                     return this.blocks.some(block => !block.isSilence && block.visited && block.labelId);
                 },
+                hasIncludedBlocks() {
+                    return this.blocks.some(block => !block.isSilence && block.visited && block.labelId);
+                },
                 blocksWithCurrentLabel() {
                     if (!this.currentLabel) return 0;
                     return this.blocks.filter(block => 
