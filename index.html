@@ -728,25 +728,50 @@
                 },
 
                 async loadState() {
-                    const [fileHandle] = await window.showOpenFilePicker({
-                        types: [{
-                            description: 'JSON Files',
-                            accept: {'application/json': ['.json']}
-                        }]
-                    });
-                    
-                    const file = await fileHandle.getFile();
-                    const state = JSON.parse(await file.text());
-                    
-                    this.$refs.videoPlayer.src = state.videoPath;
-                    
-                    this.blocks = state.blocks.map(block => ({
-                        start: block.start,
-                        end: block.end,
-                        isSilence: block.is_silence,
-                        visited: block.visited,
-                        include: block.include
-                    }));
+                    try {
+                        const [fileHandle] = await window.showOpenFilePicker({
+                            types: [{
+                                description: 'JSON Files',
+                                accept: {'application/json': ['.json']}
+                            }]
+                        });
+                        
+                        const file = await fileHandle.getFile();
+                        const state = JSON.parse(await file.text());
+                        
+                        // Validate state structure
+                        if (!state.videoPath || !Array.isArray(state.blocks)) {
+                            throw new Error('Invalid state file format');
+                        }
+                        
+                        this.$refs.videoPlayer.src = state.videoPath;
+                        
+                        this.blocks = state.blocks.map(block => ({
+                            start: block.start,
+                            end: block.end,
+                            isSilence: block.isSilence,
+                            visited: block.visited,
+                            label: block.label || (block.isSilence ? 'to-remove' : 'misc'),
+                            color: block.color || (block.isSilence ? 'red' : 'green')
+                        }));
+
+                        // Load custom labels if present
+                        if (Array.isArray(state.labels)) {
+                            // Keep default labels
+                            const defaultLabels = this.labels.slice(0, 2);
+                            this.labels = [
+                                ...defaultLabels,
+                                ...state.labels.filter(label => 
+                                    !defaultLabels.some(def => def.name === label.name)
+                                )
+                            ];
+                        }
+
+                        this.drawTimeline();
+                    } catch (error) {
+                        console.error('Error loading state:', error);
+                        alert('Failed to load state: ' + error.message);
+                    }
                 },
 
                 async saveState() {
@@ -755,28 +780,37 @@
                         return;
                     }
 
-                    const state = {
-                        videoPath: this.$refs.videoPlayer.src,
-                        blocks: this.blocks.map(block => ({
-                            start: block.start,
-                            end: block.end,
-                            is_silence: block.isSilence,
-                            visited: block.visited,
-                            include: block.include
-                        }))
-                    };
+                    try {
+                        const state = {
+                            videoPath: this.$refs.videoPlayer.src,
+                            blocks: this.blocks.map(block => ({
+                                start: block.start,
+                                end: block.end,
+                                isSilence: block.isSilence,
+                                visited: block.visited,
+                                label: block.label,
+                                color: block.color
+                            })),
+                            // Save custom labels (excluding defaults)
+                            labels: this.labels.slice(2)
+                        };
 
-                    const blob = new Blob([JSON.stringify(state)], { type: 'application/json' });
-                    const handle = await window.showSaveFilePicker({
-                        types: [{
-                            description: 'JSON Files',
-                            accept: {'application/json': ['.json']}
-                        }]
-                    });
-                    
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
+                        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+                        const handle = await window.showSaveFilePicker({
+                            types: [{
+                                description: 'JSON Files',
+                                accept: {'application/json': ['.json']}
+                            }],
+                            suggestedName: 'video-blocks.json'
+                        });
+                        
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                    } catch (error) {
+                        console.error('Error saving state:', error);
+                        alert('Failed to save state: ' + error.message);
+                    }
                 },
 
                 async exportVideo() {
@@ -802,49 +836,81 @@
                             const label = labels[labelIndex];
                             this.processingMessage = `Processing ${label} clips (${labelIndex + 1}/${labels.length})...`;
 
-                            const labelBlocks = this.blocks.filter(block => block.label === label);
-                            let segmentsList = '';
+                            // Group consecutive blocks with the same label
+                            const labelBlocks = this.blocks.reduce((groups, block) => {
+                                if (block.label !== label) return groups;
+                                
+                                const lastGroup = groups[groups.length - 1];
+                                if (lastGroup && Math.abs(block.start - lastGroup.end) < 0.1) {
+                                    // Merge with previous group if they're close enough
+                                    lastGroup.end = block.end;
+                                } else {
+                                    // Start new group
+                                    groups.push({
+                                        start: block.start,
+                                        end: block.end
+                                    });
+                                }
+                                return groups;
+                            }, []);
 
-                            // Extract segments for this label
+                            // Extract and combine segments for this label
                             for (let i = 0; i < labelBlocks.length; i++) {
                                 const block = labelBlocks[i];
                                 const duration = Math.max(0.1, block.end - block.start);
                                 
+                                this.processingMessage = `Processing ${label} segment ${i + 1}/${labelBlocks.length}...`;
+                                
+                                // Extract segment with proper encoding settings
                                 await ffmpeg.exec([
                                     '-ss', block.start.toFixed(3),
                                     '-t', duration.toFixed(3),
                                     '-i', 'input.mp4',
-                                    '-c', 'copy',
-                                    '-avoid_negative_ts', 'make_zero',
+                                    '-c:v', 'libx264',  // Use H.264 codec
+                                    '-preset', 'medium', // Balance between speed and quality
+                                    '-crf', '23',       // Constant Rate Factor for quality
+                                    '-c:a', 'aac',      // Use AAC audio codec
+                                    '-b:a', '128k',     // Audio bitrate
+                                    '-movflags', '+faststart', // Enable fast start for web playback
                                     `segment_${i}.mp4`
                                 ]);
-                                
-                                segmentsList += `file segment_${i}.mp4\n`;
                             }
 
-                            // Combine segments for this label
-                            await ffmpeg.writeFile('segments.txt', segmentsList);
-                            await ffmpeg.exec([
-                                '-f', 'concat',
-                                '-safe', '0',
-                                '-i', 'segments.txt',
-                                '-c', 'copy',
-                                `output_${label}.mp4`
-                            ]);
+                            if (labelBlocks.length > 0) {
+                                // Create concat file
+                                const segmentsList = labelBlocks.map((_, i) => 
+                                    `file segment_${i}.mp4`
+                                ).join('\n');
+                                
+                                await ffmpeg.writeFile('segments.txt', segmentsList);
 
-                            // Download the combined video for this label
-                            const data = await ffmpeg.readFile(`output_${label}.mp4`);
-                            const blob = new Blob([data], { type: 'video/mp4' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `exported_${label}.mp4`;
-                            a.click();
-                            URL.revokeObjectURL(url);
+                                // Combine segments with proper encoding
+                                await ffmpeg.exec([
+                                    '-f', 'concat',
+                                    '-safe', '0',
+                                    '-i', 'segments.txt',
+                                    '-c', 'copy',  // Copy streams without re-encoding
+                                    `output_${label}.mp4`
+                                ]);
 
-                            // Clean up segment files
-                            for (let i = 0; i < labelBlocks.length; i++) {
-                                await ffmpeg.deleteFile(`segment_${i}.mp4`);
+                                // Download the combined video
+                                const data = await ffmpeg.readFile(`output_${label}.mp4`);
+                                const blob = new Blob([data], { type: 'video/mp4' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `exported_${label}.mp4`;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+
+                                // Clean up
+                                for (let i = 0; i < labelBlocks.length; i++) {
+                                    await ffmpeg.deleteFile(`segment_${i}.mp4`);
+                                }
+                                await ffmpeg.deleteFile('segments.txt');
+                                await ffmpeg.deleteFile(`output_${label}.mp4`);
                             }
                         }
 
@@ -854,6 +920,7 @@
                     } finally {
                         this.processing = false;
                         this.processingMessage = '';
+                        await ffmpeg.deleteFile('input.mp4');
                     }
                 }
             }
