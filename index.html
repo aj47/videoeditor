@@ -62,20 +62,25 @@
                     ></video>
 
                     <!-- Timeline -->
-                    <div class="mt-4">
+                    <div class="mt-4 relative">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>{{ formatTime(0) }}</span>
+                            <span>{{ formatTime(duration) }}</span>
+                        </div>
                         <canvas 
                             ref="timelineCanvas" 
-                            class="w-full h-16 bg-base-300 rounded-lg"
+                            class="w-full h-24 bg-base-300 rounded-lg cursor-pointer"
                             @click="seekToPosition"
+                            @wheel.prevent="handleTimelineWheel"
+                            @mousemove="updateTimelineHover"
                         ></canvas>
-                        <input 
-                            type="range" 
-                            class="range range-primary w-full mt-2" 
-                            :min="0"
-                            :max="duration"
-                            :value="currentTime"
-                            @input="seek"
+                        <div 
+                            v-if="hoverTime !== null" 
+                            class="absolute bg-base-100 px-2 py-1 rounded text-xs"
+                            :style="{ left: hoverTimePosition + 'px', top: '-20px' }"
                         >
+                            {{ formatTime(hoverTime) }}
+                        </div>
                     </div>
 
                     <!-- Controls -->
@@ -267,7 +272,7 @@
                     processing: false,
                     progress: 0,
                     processingMessage: '',
-                    visibleBlocks: 200,
+                    timelineZoom: 1,
                     currentBlockIndex: 0,
                     skipTimer: null,
                     labels: [],
@@ -275,7 +280,9 @@
                     newLabelName: '',
                     newLabelColor: '#000000',
                     newLabelHotkey: '',
-                    isOverwriteMode: true
+                    isOverwriteMode: true,
+                    hoverTime: null,
+                    hoverTimePosition: 0
                 }
             },
 
@@ -604,12 +611,39 @@
                     }
                 },
 
+                formatTime(seconds) {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    const ms = Math.floor((seconds % 1) * 100);
+                    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+                },
+
+                handleTimelineWheel(event) {
+                    if (event.deltaY < 0) {
+                        this.zoomIn();
+                    } else {
+                        this.zoomOut();
+                    }
+                },
+
+                updateTimelineHover(event) {
+                    const canvas = this.$refs.timelineCanvas;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = event.clientX - rect.left;
+                    this.hoverTime = (x / canvas.width) * this.duration;
+                    this.hoverTimePosition = x;
+                },
+
                 zoomIn() {
-                    this.visibleBlocks = Math.max(1, this.visibleBlocks - 1);
+                    const zoomFactor = 0.8;
+                    this.timelineZoom = Math.min(10, this.timelineZoom / zoomFactor);
+                    this.drawTimeline();
                 },
 
                 zoomOut() {
-                    this.visibleBlocks = Math.min(this.blocks.length, this.visibleBlocks + 1);
+                    const zoomFactor = 0.8;
+                    this.timelineZoom = Math.max(1, this.timelineZoom * zoomFactor);
+                    this.drawTimeline();
                 },
 
                 onTimeUpdate() {
@@ -651,24 +685,67 @@
                     const width = canvas.width;
                     const height = canvas.height;
 
+                    // Clear canvas
                     ctx.clearRect(0, 0, width, height);
 
+                    // Calculate visible range based on zoom
+                    const visibleDuration = this.duration / this.timelineZoom;
+                    const centerTime = this.currentTime;
+                    const startTime = Math.max(0, centerTime - visibleDuration / 2);
+                    const endTime = Math.min(this.duration, centerTime + visibleDuration / 2);
+
+                    // Draw time markers
+                    ctx.fillStyle = '#666';
+                    ctx.font = '10px sans-serif';
+                    const markerInterval = Math.max(1, Math.floor(visibleDuration / 10));
+                    
+                    for (let t = Math.floor(startTime); t <= endTime; t += markerInterval) {
+                        const x = ((t - startTime) / visibleDuration) * width;
+                        ctx.fillRect(x, height - 15, 1, 5);
+                        ctx.fillText(this.formatTime(t), x - 20, height - 5);
+                    }
+
+                    // Draw blocks
                     this.blocks.forEach(block => {
-                        const x = (block.start / this.duration) * width;
-                        const w = ((block.end - block.start) / this.duration) * width;
+                        if (block.end < startTime || block.start > endTime) return;
                         
-                        if (block.color) {
-                            ctx.fillStyle = block.color;
-                        } else {
-                            ctx.fillStyle = 'gray';
+                        const x = ((block.start - startTime) / visibleDuration) * width;
+                        const w = ((block.end - block.start) / visibleDuration) * width;
+                        
+                        // Draw block background
+                        ctx.fillStyle = block.color || 'gray';
+                        ctx.globalAlpha = 0.6;
+                        ctx.fillRect(x, 0, w, height - 20);
+                        
+                        // Draw block border
+                        ctx.globalAlpha = 1;
+                        ctx.strokeStyle = block.color || 'gray';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(x, 0, w, height - 20);
+                        
+                        // Draw label if block is wide enough
+                        if (w > 50) {
+                            ctx.fillStyle = '#fff';
+                            ctx.font = 'bold 12px sans-serif';
+                            ctx.fillText(block.label, x + 5, height - 30);
                         }
-                        
-                        ctx.fillRect(x, 0, w, height);
                     });
 
-                    const playheadX = (this.currentTime / this.duration) * width;
-                    ctx.fillStyle = 'white';
+                    // Draw playhead
+                    const playheadX = ((this.currentTime - startTime) / visibleDuration) * width;
+                    ctx.globalAlpha = 1;
+                    
+                    // Playhead line
+                    ctx.fillStyle = '#fff';
                     ctx.fillRect(playheadX - 1, 0, 2, height);
+                    
+                    // Playhead triangle
+                    ctx.beginPath();
+                    ctx.moveTo(playheadX - 8, height - 15);
+                    ctx.lineTo(playheadX + 8, height - 15);
+                    ctx.lineTo(playheadX, height);
+                    ctx.closePath();
+                    ctx.fill();
                 },
 
                 seekToPosition(event) {
