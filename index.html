@@ -422,11 +422,6 @@
                     const silenceEnds = [];
                     const lines = output.split('\n');
 
-                    // Add toggleMode method
-                    Vue.prototype.toggleMode = function() {
-                        this.isOverwriteMode = !this.isOverwriteMode;
-                    };
-
                     lines.forEach(line => {
                         if (line.includes('silence_start')) {
                             const time = parseFloat(line.split('silence_start: ')[1]);
@@ -704,6 +699,10 @@
                         });
                         this.labels.splice(index, 1);
                     }
+                },
+
+                toggleMode() {
+                    this.isOverwriteMode = !this.isOverwriteMode;
                 },
 
                 async loadState() {
