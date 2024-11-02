@@ -361,13 +361,8 @@
                             if (label && this.currentBlockIndex !== -1) {
                                 const block = this.blocks[this.currentBlockIndex];
                                 if (!block.isSilence && this.isOverwriteMode) {
-                                    // Apply the label to all non-silence blocks
-                                    this.blocks.forEach(b => {
-                                        if (!b.isSilence) {
-                                            b.label = label.name;
-                                            b.color = label.color;
-                                        }
-                                    });
+                                    block.label = label.name;
+                                    block.color = label.color;
                                     this.drawTimeline(); // Redraw timeline immediately
                                 }
                             }
