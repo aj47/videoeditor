@@ -593,7 +593,7 @@
                     if (index !== -1) {
                         this.currentBlockIndex = index;
                         const block = this.blocks[index];
-                        if (!block.isSilence) {
+                        if (!block.isSilence && !this.isOverwriteMode) {
                             block.visited = true;
                             if (!block.label) {
                                 block.label = 'misc';
