@@ -433,7 +433,9 @@
                         // Clean up log handler
                         ffmpeg.off('log', logHandler);
                         // Remove focus from file input
-                        event.target.blur();
+                        if (event && event.target && event.target instanceof HTMLInputElement) {
+                            event.target.blur();
+                        }
                     }
                 },
 
