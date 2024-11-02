@@ -18,6 +18,9 @@ app.get('/manifest.json', (req, res) => {
 app.use((_, res, next) => {
   res.append("Cross-Origin-Opener-Policy", "same-origin");
   res.append("Cross-Origin-Embedder-Policy", "require-corp");
+  res.append("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.append("Pragma", "no-cache");
+  res.append("Expires", "0");
   next();
 });
 
