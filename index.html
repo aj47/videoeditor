@@ -278,7 +278,7 @@
                     newLabelName: '',
                     newLabelColor: '#000000',
                     newLabelHotkey: '',
-                    isOverwriteMode: false
+                    isOverwriteMode: true
                 }
             },
 
@@ -585,13 +585,8 @@
                 resetBlocks() {
                     this.blocks.forEach(block => {
                         block.visited = false;
-                        if (block.isSilence) {
-                            block.label = 'to-remove';
-                            block.color = 'red';
-                        } else {
-                            block.label = 'misc';
-                            block.color = 'green';
-                        }
+                        block.label = 'to-remove';
+                        block.color = 'red';
                     });
                 },
 
