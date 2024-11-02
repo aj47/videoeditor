@@ -176,7 +176,6 @@
                         <li>Space: Play/Pause</li>
                         <li>Left Arrow: Previous Block</li>
                         <li>Right Arrow: Next Block</li>
-                        <li>T: Toggle Mode</li>
                         <li>+: Zoom In</li>
                         <li>-: Zoom Out</li>
                     </ul>
@@ -282,10 +281,6 @@
                         case 'ArrowRight':
                             e.preventDefault();
                             this.nextBlock();
-                            break;
-                        case 't':
-                        case 'T':
-                            this.toggleMode();
                             break;
                         case '+':
                             this.zoomIn();
@@ -471,9 +466,6 @@
                     }
                 },
 
-                toggleMode() {
-                    this.greenMode = !this.greenMode;
-                },
 
                 resetBlocks() {
                     this.blocks.forEach(block => {
