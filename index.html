@@ -751,49 +751,64 @@
                     this.processingMessage = "Preparing for export...";
 
                     try {
-                        const includedBlocks = this.blocks.filter(
-                            block => block.label !== 'to-remove'
-                        );
+                        // Get all unique labels except 'to-remove'
+                        const labels = [...new Set(this.blocks
+                            .filter(block => block.label !== 'to-remove')
+                            .map(block => block.label))];
 
                         const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
                         await ffmpeg.writeFile('input.mp4', inputVideo);
 
-                        let segmentsList = '';
-                        for (let i = 0; i < includedBlocks.length; i++) {
-                            const block = includedBlocks[i];
-                            const duration = Math.max(0.1, block.end - block.start);
-                            
+                        // Process each label separately
+                        for (let labelIndex = 0; labelIndex < labels.length; labelIndex++) {
+                            const label = labels[labelIndex];
+                            this.processingMessage = `Processing ${label} clips (${labelIndex + 1}/${labels.length})...`;
+
+                            const labelBlocks = this.blocks.filter(block => block.label === label);
+                            let segmentsList = '';
+
+                            // Extract segments for this label
+                            for (let i = 0; i < labelBlocks.length; i++) {
+                                const block = labelBlocks[i];
+                                const duration = Math.max(0.1, block.end - block.start);
+                                
+                                await ffmpeg.exec([
+                                    '-ss', block.start.toFixed(3),
+                                    '-t', duration.toFixed(3),
+                                    '-i', 'input.mp4',
+                                    '-c', 'copy',
+                                    '-avoid_negative_ts', 'make_zero',
+                                    `segment_${i}.mp4`
+                                ]);
+                                
+                                segmentsList += `file segment_${i}.mp4\n`;
+                            }
+
+                            // Combine segments for this label
+                            await ffmpeg.writeFile('segments.txt', segmentsList);
                             await ffmpeg.exec([
-                                '-ss', block.start.toFixed(3),
-                                '-t', duration.toFixed(3),
-                                '-i', 'input.mp4',
+                                '-f', 'concat',
+                                '-safe', '0',
+                                '-i', 'segments.txt',
                                 '-c', 'copy',
-                                '-avoid_negative_ts', 'make_zero',
-                                `segment_${i}.mp4`
+                                `output_${label}.mp4`
                             ]);
-                            
-                            segmentsList += `file segment_${i}.mp4\n`;
+
+                            // Download the combined video for this label
+                            const data = await ffmpeg.readFile(`output_${label}.mp4`);
+                            const blob = new Blob([data], { type: 'video/mp4' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `exported_${label}.mp4`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+
+                            // Clean up segment files
+                            for (let i = 0; i < labelBlocks.length; i++) {
+                                await ffmpeg.deleteFile(`segment_${i}.mp4`);
+                            }
                         }
-
-                        await ffmpeg.writeFile('segments.txt', segmentsList);
-
-                        await ffmpeg.exec([
-                            '-f', 'concat',
-                            '-safe', '0',
-                            '-i', 'segments.txt',
-                            '-c', 'copy',
-                            'output.mp4'
-                        ]);
-
-                        const data = await ffmpeg.readFile('output.mp4');
-                        
-                        const blob = new Blob([data], { type: 'video/mp4' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'exported_video.mp4';
-                        a.click();
-                        URL.revokeObjectURL(url);
 
                     } catch (error) {
                         console.error('Export error:', error);
