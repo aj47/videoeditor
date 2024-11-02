@@ -73,13 +73,21 @@
                             </button>
                         </div>
 
-                        <div class="btn-group">
-                            <button 
-                                class="btn" 
-                                :class="{'btn-success': greenMode, 'btn-error': !greenMode}"
-                                @click="toggleMode"
-                            >
-                                {{ greenMode ? 'Include Mode' : 'Exclude Mode' }}
+                        <div class="flex gap-2">
+                            <div class="dropdown">
+                                <label tabindex="0" class="btn m-1">Select Label</label>
+                                <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                    <li v-for="label in labels" :key="label.id">
+                                        <a @click="selectLabel(label)" 
+                                           :style="{ backgroundColor: label.color + '20' }">
+                                            {{ label.name }}
+                                            <div class="w-4 h-4 rounded" :style="{ backgroundColor: label.color }"></div>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <button class="btn" @click="showLabelEditor = !showLabelEditor">
+                                Edit Labels
                             </button>
                             <button class="btn" @click="resetBlocks" :disabled="!blocks.length">
                                 Reset
@@ -175,7 +183,13 @@
                     currentTime: 0,
                     duration: 0,
                     isPlaying: false,
-                    greenMode: true,
+                    currentLabel: null,
+                    labels: [
+                        { id: 1, name: 'Keep', color: '#4CAF50' },
+                        { id: 2, name: 'Important', color: '#2196F3' },
+                        { id: 3, name: 'Review', color: '#FFC107' }
+                    ],
+                    showLabelEditor: false,
                     processing: false,
                     progress: 0,
                     processingMessage: '',
@@ -186,8 +200,8 @@
             },
 
             computed: {
-                hasIncludedBlocks() {
-                    return this.blocks.some(block => !block.isSilence && block.visited && block.include);
+                hasLabeledBlocks() {
+                    return this.blocks.some(block => !block.isSilence && block.visited && block.labelId);
                 }
             },
 
@@ -433,8 +447,34 @@
                 resetBlocks() {
                     this.blocks.forEach(block => {
                         block.visited = false;
-                        block.include = !block.isSilence;
+                        block.labelId = null;
                     });
+                },
+
+                selectLabel(label) {
+                    this.currentLabel = label;
+                },
+
+                addNewLabel() {
+                    const newId = Math.max(...this.labels.map(l => l.id), 0) + 1;
+                    this.labels.push({
+                        id: newId,
+                        name: 'New Label',
+                        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+                    });
+                },
+
+                deleteLabel(labelId) {
+                    const index = this.labels.findIndex(l => l.id === labelId);
+                    if (index !== -1) {
+                        this.labels.splice(index, 1);
+                        // Remove this label from any blocks that had it
+                        this.blocks.forEach(block => {
+                            if (block.labelId === labelId) {
+                                block.labelId = null;
+                            }
+                        });
+                    }
                 },
 
                 zoomIn() {
@@ -468,9 +508,9 @@
                     if (index !== -1) {
                         this.currentBlockIndex = index;
                         const block = this.blocks[index];
-                        if (!block.isSilence) {
+                        if (!block.isSilence && this.currentLabel) {
                             block.visited = true;
-                            block.include = this.greenMode;
+                            block.labelId = this.currentLabel.id;
                         }
                     }
                 },
@@ -489,8 +529,9 @@
                         
                         if (block.isSilence) {
                             ctx.fillStyle = 'gray';
-                        } else if (block.visited) {
-                            ctx.fillStyle = block.include ? 'green' : 'red';
+                        } else if (block.visited && block.labelId) {
+                            const label = this.labels.find(l => l.id === block.labelId);
+                            ctx.fillStyle = label ? label.color : 'blue';
                         } else {
                             ctx.fillStyle = 'blue';
                         }
@@ -572,20 +613,34 @@
                 },
 
                 async exportVideo() {
-                    if (!this.blocks.some(block => !block.isSilence && block.visited && block.include)) {
-                        alert("No blocks selected for export!");
+                    const labeledBlocks = this.blocks.filter(
+                        block => !block.isSilence && block.visited && block.labelId
+                    );
+                    
+                    if (labeledBlocks.length === 0) {
+                        alert("No labeled blocks to export!");
                         return;
                     }
+
+                    // Group blocks by label
+                    const blocksByLabel = {};
+                    labeledBlocks.forEach(block => {
+                        if (!blocksByLabel[block.labelId]) {
+                            blocksByLabel[block.labelId] = [];
+                        }
+                        blocksByLabel[block.labelId].push(block);
+                    });
 
                     this.processing = true;
                     this.processingMessage = "Preparing for export...";
                     
                     try {
-                        const includedBlocks = this.blocks.filter(
-                            block => !block.isSilence && block.visited && block.include
-                        );
-
-                        const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
+                        // Export a separate video for each label
+                        for (const labelId in blocksByLabel) {
+                            const label = this.labels.find(l => l.id === parseInt(labelId));
+                            const blocks = blocksByLabel[labelId];
+                            
+                            const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
                         await ffmpeg.writeFile('input.mp4', inputVideo);
 
                         let segmentsList = '';
@@ -615,15 +670,16 @@
                             'output.mp4'
                         ]);
 
-                        const data = await ffmpeg.readFile('output.mp4');
-                        
-                        const blob = new Blob([data], { type: 'video/mp4' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'exported_video.mp4';
-                        a.click();
-                        URL.revokeObjectURL(url);
+                            const data = await ffmpeg.readFile('output.mp4');
+                            
+                            const blob = new Blob([data], { type: 'video/mp4' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${label.name.toLowerCase().replace(/\s+/g, '_')}_video.mp4`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }
 
                     } catch (error) {
                         console.error('Export error:', error);
