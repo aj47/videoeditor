@@ -497,17 +497,27 @@
                         (!currentBlock.isSilence && currentBlock.end - currentBlock.start < 0.2)) {
                         const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex);
                         if (nextIndex !== null) {
-                            // Store the current label and color before changing blocks
-                            const currentLabel = currentBlock.label;
-                            const currentColor = currentBlock.color;
+                            // Store the previous non-silence block's label and color
+                            let labelToApply = 'misc';
+                            let colorToApply = 'green';
+                            
+                            // Look backwards to find the last non-silence block's label
+                            for (let i = this.currentBlockIndex; i >= 0; i--) {
+                                const block = this.blocks[i];
+                                if (!block.isSilence) {
+                                    labelToApply = block.label;
+                                    colorToApply = block.color;
+                                    break;
+                                }
+                            }
                             
                             this.currentBlockIndex = nextIndex;
                             const nextBlock = this.blocks[nextIndex];
                             
-                            // If in overwrite mode, apply the current label to the next block
+                            // If in overwrite mode, apply the previous label to the next block
                             if (this.isOverwriteMode && !nextBlock.isSilence) {
-                                nextBlock.label = currentLabel;
-                                nextBlock.color = currentColor;
+                                nextBlock.label = labelToApply;
+                                nextBlock.color = colorToApply;
                                 this.drawTimeline(); // Redraw timeline immediately
                             }
                             
