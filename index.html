@@ -497,8 +497,20 @@
                         (!currentBlock.isSilence && currentBlock.end - currentBlock.start < 0.2)) {
                         const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex);
                         if (nextIndex !== null) {
+                            // Store the current label and color before changing blocks
+                            const currentLabel = currentBlock.label;
+                            const currentColor = currentBlock.color;
+                            
                             this.currentBlockIndex = nextIndex;
                             const nextBlock = this.blocks[nextIndex];
+                            
+                            // If in overwrite mode, apply the current label to the next block
+                            if (this.isOverwriteMode && !nextBlock.isSilence) {
+                                nextBlock.label = currentLabel;
+                                nextBlock.color = currentColor;
+                                this.drawTimeline(); // Redraw timeline immediately
+                            }
+                            
                             this.$refs.videoPlayer.currentTime = nextBlock.start + 0.05;
                         } else {
                             this.$refs.videoPlayer.pause();
