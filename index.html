@@ -270,10 +270,7 @@
                     visibleBlocks: 200,
                     currentBlockIndex: 0,
                     skipTimer: null,
-                    labels: [
-                        { name: 'to-remove', color: 'red', hotkey: 'r' },
-                        { name: 'misc', color: 'green', hotkey: 'm' }
-                    ],
+                    labels: [],
                     showLabelModal: false,
                     newLabelName: '',
                     newLabelColor: '#000000',
@@ -294,6 +291,18 @@
             },
 
             async mounted() {
+                // Load saved labels or use defaults
+                const savedLabels = localStorage.getItem('videoEditorLabels');
+                if (savedLabels) {
+                    this.labels = JSON.parse(savedLabels);
+                } else {
+                    this.labels = [
+                        { name: 'to-remove', color: 'red', hotkey: 'r' },
+                        { name: 'misc', color: 'green', hotkey: 'm' }
+                    ];
+                    this.saveLabels();
+                }
+
                 try {
                     const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
                     await ffmpeg.load({
@@ -696,6 +705,10 @@
                     this.labels[index].hotkey = value;
                 },
 
+                saveLabels() {
+                    localStorage.setItem('videoEditorLabels', JSON.stringify(this.labels));
+                },
+
                 addLabel() {
                     if (this.newLabelName && this.newLabelHotkey) {
                         // Check for duplicate hotkey
@@ -711,6 +724,7 @@
                         this.newLabelName = '';
                         this.newLabelColor = '#000000';
                         this.newLabelHotkey = '';
+                        this.saveLabels();
                     }
                 },
 
@@ -726,6 +740,7 @@
                             }
                         });
                         this.labels.splice(index, 1);
+                        this.saveLabels();
                     }
                 },
 
