@@ -75,11 +75,10 @@
 
                         <div class="btn-group">
                             <button 
-                                class="btn" 
-                                :class="{'btn-success': greenMode, 'btn-error': !greenMode}"
-                                @click="toggleMode"
+                                class="btn btn-secondary"
+                                @click="manageLabels"
                             >
-                                {{ greenMode ? 'Include Mode' : 'Exclude Mode' }}
+                                Manage Labels
                             </button>
                             <button class="btn" @click="resetBlocks" :disabled="!blocks.length">
                                 Reset
@@ -146,7 +145,6 @@
                         <li>Space: Play/Pause</li>
                         <li>Left Arrow: Previous Block</li>
                         <li>Right Arrow: Next Block</li>
-                        <li>T: Toggle Mode</li>
                         <li>+: Zoom In</li>
                         <li>-: Zoom Out</li>
                     </ul>
@@ -175,19 +173,22 @@
                     currentTime: 0,
                     duration: 0,
                     isPlaying: false,
-                    greenMode: true,
                     processing: false,
                     progress: 0,
                     processingMessage: '',
                     visibleBlocks: 200,
                     currentBlockIndex: 0,
-                    skipTimer: null
+                    skipTimer: null,
+                    labels: [
+                        { name: 'to-remove', color: 'red' },
+                        { name: 'misc', color: 'green' }
+                    ]
                 }
             },
 
             computed: {
                 hasIncludedBlocks() {
-                    return this.blocks.some(block => !block.isSilence && block.visited && block.include);
+                    return this.blocks.some(block => block.label !== 'to-remove');
                 }
             },
 
@@ -237,10 +238,6 @@
                         case 'ArrowRight':
                             e.preventDefault();
                             this.nextBlock();
-                            break;
-                        case 't':
-                        case 'T':
-                            this.toggleMode();
                             break;
                         case '+':
                             this.zoomIn();
@@ -323,7 +320,8 @@
                                 end: start,
                                 isSilence: false,
                                 visited: false,
-                                include: true
+                                label: 'misc',
+                                color: 'green'
                             });
                         }
                         blocks.push({
@@ -331,7 +329,8 @@
                             end: silenceEnds[i],
                             isSilence: true,
                             visited: false,
-                            include: false
+                            label: 'to-remove',
+                            color: 'red'
                         });
                         currentTime = silenceEnds[i];
                     });
@@ -342,7 +341,8 @@
                             end: this.duration,
                             isSilence: false,
                             visited: false,
-                            include: true
+                            label: 'misc',
+                            color: 'green'
                         });
                     }
 
@@ -426,14 +426,17 @@
                     }
                 },
 
-                toggleMode() {
-                    this.greenMode = !this.greenMode;
-                },
 
                 resetBlocks() {
                     this.blocks.forEach(block => {
                         block.visited = false;
-                        block.include = !block.isSilence;
+                        if (block.isSilence) {
+                            block.label = 'to-remove';
+                            block.color = 'red';
+                        } else {
+                            block.label = 'misc';
+                            block.color = 'green';
+                        }
                     });
                 },
 
@@ -470,7 +473,10 @@
                         const block = this.blocks[index];
                         if (!block.isSilence) {
                             block.visited = true;
-                            block.include = this.greenMode;
+                            if (!block.label) {
+                                block.label = 'misc';
+                                block.color = 'green';
+                            }
                         }
                     }
                 },
@@ -487,12 +493,10 @@
                         const x = (block.start / this.duration) * width;
                         const w = ((block.end - block.start) / this.duration) * width;
                         
-                        if (block.isSilence) {
-                            ctx.fillStyle = 'gray';
-                        } else if (block.visited) {
-                            ctx.fillStyle = block.include ? 'green' : 'red';
+                        if (block.color) {
+                            ctx.fillStyle = block.color;
                         } else {
-                            ctx.fillStyle = 'blue';
+                            ctx.fillStyle = 'gray';
                         }
                         
                         ctx.fillRect(x, 0, w, height);
@@ -572,17 +576,17 @@
                 },
 
                 async exportVideo() {
-                    if (!this.blocks.some(block => !block.isSilence && block.visited && block.include)) {
+                    if (!this.blocks.some(block => block.label !== 'to-remove')) {
                         alert("No blocks selected for export!");
                         return;
                     }
 
                     this.processing = true;
                     this.processingMessage = "Preparing for export...";
-                    
+
                     try {
                         const includedBlocks = this.blocks.filter(
-                            block => !block.isSilence && block.visited && block.include
+                            block => block.label !== 'to-remove'
                         );
 
                         const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
