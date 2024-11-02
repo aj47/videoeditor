@@ -85,14 +85,6 @@
                             </button>
                         </div>
 
-                        <div class="btn-group">
-                            <button class="btn" @click="zoomIn">
-                                Zoom In
-                            </button>
-                            <button class="btn" @click="zoomOut">
-                                Zoom Out
-                            </button>
-                        </div>
                     </div>
                 </div>
 
@@ -352,6 +344,7 @@
                                 if (!block.isSilence) {
                                     block.label = label.name;
                                     block.color = label.color;
+                                    this.drawTimeline(); // Redraw timeline immediately
                                 }
                             }
                             break;
