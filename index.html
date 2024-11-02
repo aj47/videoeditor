@@ -414,6 +414,8 @@
                     } finally {
                         // Clean up log handler
                         ffmpeg.off('log', logHandler);
+                        // Remove focus from file input
+                        event.target.blur();
                     }
                 },
 
