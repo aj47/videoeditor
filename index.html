@@ -147,13 +147,24 @@
                         <div v-for="(label, index) in labels" :key="index" class="flex items-center gap-2 mb-2">
                             <div class="w-4 h-4" :style="{ backgroundColor: label.color }"></div>
                             <span>{{ label.name }}</span>
-                            <button 
-                                v-if="index > 1" 
-                                class="btn btn-xs btn-error" 
-                                @click="deleteLabel(index)"
-                            >
-                                Delete
-                            </button>
+                            <span class="ml-2 text-sm opacity-70">[{{ label.hotkey }}]</span>
+                            <div class="flex gap-2 ml-auto">
+                                <input 
+                                    v-if="index > 1"
+                                    type="text" 
+                                    v-model="label.hotkey" 
+                                    class="input input-xs input-bordered w-12"
+                                    maxlength="1"
+                                    @input="validateHotkey($event, index)"
+                                >
+                                <button 
+                                    v-if="index > 1" 
+                                    class="btn btn-xs btn-error" 
+                                    @click="deleteLabel(index)"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -177,6 +188,18 @@
                             type="color" 
                             v-model="newLabelColor" 
                             class="w-full h-10"
+                        >
+                    </div>
+                    <div class="form-control mt-2">
+                        <label class="label">
+                            <span class="label-text">Hotkey</span>
+                        </label>
+                        <input 
+                            type="text"
+                            v-model="newLabelHotkey"
+                            class="input input-bordered"
+                            maxlength="1"
+                            placeholder="Single letter key"
                         >
                     </div>
                     <button 
@@ -206,6 +229,14 @@
                         <li>Right Arrow: Next Block</li>
                         <li>+: Zoom In</li>
                         <li>-: Zoom Out</li>
+                    </ul>
+                    <h4 class="font-bold mt-4 mb-2">Label Hotkeys:</h4>
+                    <ul class="list-disc list-inside">
+                        <template v-for="label in labels">
+                            <li v-if="label.hotkey">
+                                {{ label.hotkey }}: Apply "{{ label.name }}" label
+                            </li>
+                        </template>
                     </ul>
                 </div>
                 <div class="modal-action">
@@ -239,12 +270,13 @@
                     currentBlockIndex: 0,
                     skipTimer: null,
                     labels: [
-                        { name: 'to-remove', color: 'red' },
-                        { name: 'misc', color: 'green' }
+                        { name: 'to-remove', color: 'red', hotkey: 'r' },
+                        { name: 'misc', color: 'green', hotkey: 'm' }
                     ],
                     showLabelModal: false,
                     newLabelName: '',
-                    newLabelColor: '#000000'
+                    newLabelColor: '#000000',
+                    newLabelHotkey: ''
                 }
             },
 
@@ -288,6 +320,11 @@
 
             methods: {
                 handleKeyPress(e) {
+                    // Don't handle keys if we're in an input field
+                    if (e.target.tagName === 'INPUT') {
+                        return;
+                    }
+
                     switch(e.key) {
                         case ' ':
                             e.preventDefault();
@@ -306,6 +343,17 @@
                             break;
                         case '-':
                             this.zoomOut();
+                            break;
+                        default:
+                            // Check for label hotkeys
+                            const label = this.labels.find(l => l.hotkey === e.key.toLowerCase());
+                            if (label && this.currentBlockIndex !== -1) {
+                                const block = this.blocks[this.currentBlockIndex];
+                                if (!block.isSilence) {
+                                    block.label = label.name;
+                                    block.color = label.color;
+                                }
+                            }
                             break;
                     }
                 },
@@ -589,14 +637,40 @@
                     this.$refs.labelModal.showModal();
                 },
 
+                validateHotkey(event, index) {
+                    const value = event.target.value.toLowerCase();
+                    // Only allow single letters
+                    if (!/^[a-z]$/.test(value)) {
+                        this.labels[index].hotkey = '';
+                        return;
+                    }
+                    // Check for duplicate hotkeys
+                    const isDuplicate = this.labels.some((label, i) => 
+                        i !== index && label.hotkey === value
+                    );
+                    if (isDuplicate) {
+                        this.labels[index].hotkey = '';
+                        alert('This hotkey is already in use');
+                        return;
+                    }
+                    this.labels[index].hotkey = value;
+                },
+
                 addLabel() {
-                    if (this.newLabelName) {
+                    if (this.newLabelName && this.newLabelHotkey) {
+                        // Check for duplicate hotkey
+                        if (this.labels.some(label => label.hotkey === this.newLabelHotkey)) {
+                            alert('This hotkey is already in use');
+                            return;
+                        }
                         this.labels.push({
                             name: this.newLabelName,
-                            color: this.newLabelColor
+                            color: this.newLabelColor,
+                            hotkey: this.newLabelHotkey.toLowerCase()
                         });
                         this.newLabelName = '';
                         this.newLabelColor = '#000000';
+                        this.newLabelHotkey = '';
                     }
                 },
 
