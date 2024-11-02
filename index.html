@@ -136,6 +136,65 @@
             </div>
         </div>
 
+        <!-- Label Management Modal -->
+        <dialog ref="labelModal" class="modal">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg">Manage Labels</h3>
+                <div class="py-4">
+                    <!-- Existing Labels -->
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">Existing Labels</h4>
+                        <div v-for="(label, index) in labels" :key="index" class="flex items-center gap-2 mb-2">
+                            <div class="w-4 h-4" :style="{ backgroundColor: label.color }"></div>
+                            <span>{{ label.name }}</span>
+                            <button 
+                                v-if="index > 1" 
+                                class="btn btn-xs btn-error" 
+                                @click="deleteLabel(index)"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Add New Label -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">New Label Name</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            v-model="newLabelName" 
+                            class="input input-bordered w-full"
+                            placeholder="Enter label name"
+                        >
+                    </div>
+                    <div class="form-control mt-2">
+                        <label class="label">
+                            <span class="label-text">Color</span>
+                        </label>
+                        <input 
+                            type="color" 
+                            v-model="newLabelColor" 
+                            class="w-full h-10"
+                        >
+                    </div>
+                    <button 
+                        class="btn btn-primary mt-4" 
+                        @click="addLabel"
+                        :disabled="!newLabelName"
+                    >
+                        Add Label
+                    </button>
+                </div>
+                <div class="modal-action">
+                    <form method="dialog">
+                        <button class="btn">Close</button>
+                    </form>
+                </div>
+            </div>
+        </dialog>
+
         <!-- Help Modal -->
         <dialog ref="helpModal" class="modal">
             <div class="modal-box">
@@ -182,7 +241,10 @@
                     labels: [
                         { name: 'to-remove', color: 'red' },
                         { name: 'misc', color: 'green' }
-                    ]
+                    ],
+                    showLabelModal: false,
+                    newLabelName: '',
+                    newLabelColor: '#000000'
                 }
             },
 
@@ -521,6 +583,36 @@
 
                 showHelp() {
                     this.$refs.helpModal.showModal();
+                },
+
+                manageLabels() {
+                    this.$refs.labelModal.showModal();
+                },
+
+                addLabel() {
+                    if (this.newLabelName) {
+                        this.labels.push({
+                            name: this.newLabelName,
+                            color: this.newLabelColor
+                        });
+                        this.newLabelName = '';
+                        this.newLabelColor = '#000000';
+                    }
+                },
+
+                deleteLabel(index) {
+                    // Don't allow deletion of default labels (first two)
+                    if (index > 1) {
+                        // Update blocks using this label to use 'misc'
+                        const deletedLabel = this.labels[index];
+                        this.blocks.forEach(block => {
+                            if (block.label === deletedLabel.name) {
+                                block.label = 'misc';
+                                block.color = 'green';
+                            }
+                        });
+                        this.labels.splice(index, 1);
+                    }
                 },
 
                 async loadState() {
