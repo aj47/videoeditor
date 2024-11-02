@@ -120,10 +120,12 @@
                     </div>
                 </div>
 
-                <!-- Progress -->
-                <div v-if="processing" class="bg-base-200 rounded-box p-4">
-                    <progress class="progress w-full" :value="progress" max="100"></progress>
-                    <div class="text-center mt-2">{{ processingMessage }}</div>
+                <!-- Processing Overlay -->
+                <div v-if="processing" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                    <div class="bg-base-200 rounded-box p-8 max-w-md w-full mx-4">
+                        <progress class="progress w-full" :value="progress" max="100"></progress>
+                        <div class="text-center mt-4 text-lg font-semibold">{{ processingMessage }}</div>
+                    </div>
                 </div>
             </div>
         </div>
