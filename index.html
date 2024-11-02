@@ -594,11 +594,14 @@
 
 
                 resetBlocks() {
-                    this.blocks.forEach(block => {
-                        block.visited = false;
-                        block.label = 'to-remove';
-                        block.color = 'red';
-                    });
+                    if (confirm('Are you sure you want to reset all blocks to "to-remove"?')) {
+                        this.blocks.forEach(block => {
+                            block.visited = false;
+                            block.label = 'to-remove';
+                            block.color = 'red';
+                        });
+                        this.drawTimeline(); // Immediately update the timeline
+                    }
                 },
 
                 zoomIn() {
