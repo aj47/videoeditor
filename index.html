@@ -99,6 +99,13 @@
                             >
                                 Labels ({{ getCurrentBlockLabel }})
                             </button>
+                            <button 
+                                class="btn" 
+                                :class="{ 'btn-accent': isOverwriteMode }"
+                                @click="toggleMode"
+                            >
+                                {{ isOverwriteMode ? 'Overwrite' : 'Read' }}
+                            </button>
                             <button class="btn" @click="resetBlocks" :disabled="!blocks.length">
                                 Reset
                             </button>
@@ -270,7 +277,8 @@
                     showLabelModal: false,
                     newLabelName: '',
                     newLabelColor: '#000000',
-                    newLabelHotkey: ''
+                    newLabelHotkey: '',
+                    isOverwriteMode: false
                 }
             },
 
@@ -325,6 +333,10 @@
                     }
 
                     switch(e.key) {
+                        case 'Tab':
+                            e.preventDefault();
+                            this.toggleMode();
+                            break;
                         case ' ':
                             e.preventDefault();
                             this.playPause();
@@ -348,7 +360,7 @@
                             const label = this.labels.find(l => l.hotkey === e.key.toLowerCase());
                             if (label && this.currentBlockIndex !== -1) {
                                 const block = this.blocks[this.currentBlockIndex];
-                                if (!block.isSilence) {
+                                if (!block.isSilence && this.isOverwriteMode) {
                                     block.label = label.name;
                                     block.color = label.color;
                                     this.drawTimeline(); // Redraw timeline immediately
@@ -409,6 +421,11 @@
                     const silenceStarts = [];
                     const silenceEnds = [];
                     const lines = output.split('\n');
+
+                    // Add toggleMode method
+                    Vue.prototype.toggleMode = function() {
+                        this.isOverwriteMode = !this.isOverwriteMode;
+                    };
 
                     lines.forEach(line => {
                         if (line.includes('silence_start')) {
