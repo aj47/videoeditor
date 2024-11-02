@@ -78,7 +78,7 @@
                                 class="btn btn-secondary"
                                 @click="manageLabels"
                             >
-                                Manage Labels
+                                Labels ({{ getCurrentBlockLabel }})
                             </button>
                             <button class="btn" @click="resetBlocks" :disabled="!blocks.length">
                                 Reset
@@ -275,6 +275,11 @@
             computed: {
                 hasIncludedBlocks() {
                     return this.blocks.some(block => block.label !== 'to-remove');
+                },
+                getCurrentBlockLabel() {
+                    if (this.currentBlockIndex === -1 || !this.blocks.length) return 'none';
+                    const block = this.blocks[this.currentBlockIndex];
+                    return block ? block.label : 'none';
                 }
             },
 
