@@ -1128,10 +1128,15 @@
                                 const a = document.createElement('a');
                                 a.href = url;
                                 a.download = `exported_${label}.mp4`;
+                                a.style.display = 'none';
                                 document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
+                                
+                                // Use setTimeout to ensure the download starts before revoking
+                                setTimeout(() => {
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                }, 100);
 
                                 // Clean up
                                 for (let i = 0; i < labelBlocks.length; i++) {
