@@ -25,6 +25,7 @@
                         type="file" 
                         class="file-input file-input-bordered file-input-sm w-full max-w-xs"
                         accept="video/*"
+                        @click.prevent
                         @change="onFileSelect"
                     >
                 </div>
@@ -400,6 +401,10 @@
                 async onFileSelect(event) {
                     console.log('onFileSelect triggered', event);
                     try {
+                        // Prevent using the native file input
+                        event.preventDefault();
+                        event.target.value = '';
+                        
                         console.log('Showing file picker...');
                         const [fileHandle] = await window.showOpenFilePicker({
                             types: [{
