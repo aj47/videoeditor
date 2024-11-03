@@ -25,7 +25,6 @@
                         type="file" 
                         class="file-input file-input-bordered file-input-sm w-full max-w-xs"
                         accept="video/*"
-                        @click.prevent
                         @change="onFileSelect"
                     >
                 </div>
@@ -401,12 +400,25 @@
                 async onFileSelect(event) {
                     console.log('onFileSelect triggered', event);
                     try {
-                        // Prevent using the native file input
-                        event.preventDefault();
-                        event.target.value = '';
+                        // Use the selected file from the input
+                        const file = event.target.files[0];
+                        if (!file) return;
                         
-                        console.log('Showing file picker...');
-                        const [fileHandle] = await window.showOpenFilePicker({
+                        console.log('Processing selected file:', file.name);
+                        
+                        if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB
+                            throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
+                        }
+
+                        // Create URL for video playback
+                        const url = URL.createObjectURL(file);
+                        this.$refs.videoPlayer.src = url;
+                        
+                        this.processing = true;
+                        this.processingMessage = 'Processing video...';
+
+                        // Process file in chunks if larger than 1GB
+                        if (file.size > 1024 * 1024 * 1024) { // 1GB
                             types: [{
                                 description: 'Video Files',
                                 accept: {
