@@ -12,6 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet">
     <script src="/assets/ffmpeg/package/dist/umd/ffmpeg.js"></script>
     <script src="/assets/util/package/dist/umd/index.js"></script>
+    <script src="/chunks.js"></script>
 </head>
 <body>
     <div id="app">
@@ -419,40 +420,47 @@
                         // Store file handle for later use
                         this.currentFileHandle = fileHandle;
 
-                        // Get fresh file and create URL for video playback
-                        let file;
-                        try {
-                            file = await this.currentFileHandle.getFile();
-                        } catch (error) {
-                            if (error instanceof NotReadableError) {
-                                // Try requesting permission again
-                                const newPermission = await this.currentFileHandle.requestPermission({ mode: 'read' });
-                                if (newPermission !== 'granted') {
-                                    throw new Error('Lost permission to read file');
-                                }
-                                file = await this.currentFileHandle.getFile();
-                            } else {
-                                throw error;
-                            }
+                        // Get fresh file and validate size
+                        const file = await fileHandle.getFile();
+                        
+                        if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB
+                            throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
                         }
 
+                        // Create URL for video playback
                         const url = URL.createObjectURL(file);
                         this.$refs.videoPlayer.src = url;
                         
                         this.processing = true;
                         this.processingMessage = 'Processing video...';
 
-                        // Read the entire file at once with fresh file handle
-                        this.processingMessage = 'Reading file...';
-                        const freshFile = await this.currentFileHandle.getFile();
-                        const arrayBuffer = await freshFile.arrayBuffer();
-                        
-                        // Write to FFmpeg
-                        this.processingMessage = 'Writing to FFmpeg...';
-                        await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
-                        
-                        this.processingMessage = 'Processing video...';
-                        await this.detectSilence();
+                        // Process file in chunks if larger than 1GB
+                        if (file.size > 1024 * 1024 * 1024) { // 1GB
+                            this.processingMessage = 'Large file detected, processing in chunks...';
+                            
+                            await VideoChunker.processInChunks(file, async (chunkInfo) => {
+                                this.processingMessage = `Processing chunk ${Math.round(chunkInfo.start / chunkInfo.total * 100)}%...`;
+                                
+                                // Write chunk to FFmpeg
+                                await ffmpeg.writeFile(
+                                    `chunk_${chunkInfo.start}.mp4`,
+                                    new Uint8Array(await chunkInfo.chunk.arrayBuffer())
+                                );
+
+                                // Process chunk
+                                if (chunkInfo.isLastChunk) {
+                                    await this.detectSilence(`chunk_${chunkInfo.start}.mp4`);
+                                }
+
+                                // Cleanup chunk file
+                                await ffmpeg.deleteFile(`chunk_${chunkInfo.start}.mp4`);
+                            });
+                        } else {
+                            // Process small file normally
+                            const arrayBuffer = await file.arrayBuffer();
+                            await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
+                            await this.detectSilence('input.mp4');
+                        }
                     } catch (error) {
                         console.error('File processing error:', error);
                         alert(error.message);
@@ -461,7 +469,7 @@
                     }
                 },
 
-                async detectSilence() {
+                async detectSilence(inputFile = 'input.mp4') {
                     let silenceLog = '';
                     
                     // Set up log handler before processing
@@ -474,9 +482,8 @@
                     ffmpeg.on('log', logHandler);
                     
                     try {
-                        
                         await ffmpeg.exec([
-                            '-i', 'input.mp4',
+                            '-i', inputFile,
                             '-af', 'silencedetect=noise=-40dB:d=0.1',
                             '-f', 'null',
                             '-'
