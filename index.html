@@ -427,7 +427,33 @@
                             }]
                         });
 
-                        // Request read permission
+                        // Process file in chunks if larger than 1GB
+                        if (file.size > 1024 * 1024 * 1024) { // 1GB
+                            this.processingMessage = 'Large file detected, processing in chunks...';
+                            
+                            await VideoChunker.processInChunks(file, async (chunkInfo) => {
+                                this.processingMessage = `Processing chunk ${Math.round(chunkInfo.start / chunkInfo.total * 100)}%...`;
+                                
+                                // Write chunk to FFmpeg
+                                await ffmpeg.writeFile(
+                                    `chunk_${chunkInfo.start}.mp4`,
+                                    new Uint8Array(await chunkInfo.chunk.arrayBuffer())
+                                );
+
+                                // Process chunk
+                                if (chunkInfo.isLastChunk) {
+                                    await this.detectSilence(`chunk_${chunkInfo.start}.mp4`);
+                                }
+
+                                // Cleanup chunk file
+                                await ffmpeg.deleteFile(`chunk_${chunkInfo.start}.mp4`);
+                            });
+                        } else {
+                            // Process small file normally
+                            const arrayBuffer = await file.arrayBuffer();
+                            await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
+                            await this.detectSilence('input.mp4');
+                        }
                         if ((await fileHandle.queryPermission({ mode: 'read' })) !== 'granted') {
                             const newPermission = await fileHandle.requestPermission({ mode: 'read' });
                             if (newPermission !== 'granted') {
