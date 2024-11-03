@@ -439,14 +439,14 @@
                         }
 
                         // Create URL for video playback
-                        const url = URL.createObjectURL(freshFile);
-                        this.$refs.videoPlayer.src = url;
+                        const videoUrl = URL.createObjectURL(freshFile);
+                        this.$refs.videoPlayer.src = videoUrl;
                         
                         this.processing = true;
                         this.processingMessage = 'Processing video...';
 
                         // Process file in chunks if larger than 1GB
-                        if (file.size > 1024 * 1024 * 1024) { // 1GB
+                        if (freshFile.size > 1024 * 1024 * 1024) { // 1GB
                             this.processingMessage = 'Large file detected, processing in chunks...';
                             
                             await VideoChunker.processInChunks(file, async (chunkInfo) => {
