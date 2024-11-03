@@ -432,14 +432,14 @@
                         this.currentFileHandle = fileHandle;
 
                         // Get fresh file and validate size
-                        const file = await fileHandle.getFile();
+                        const freshFile = await fileHandle.getFile();
                         
-                        if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB
+                        if (freshFile.size > 2 * 1024 * 1024 * 1024) { // 2GB
                             throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
                         }
 
                         // Create URL for video playback
-                        const url = URL.createObjectURL(file);
+                        const url = URL.createObjectURL(freshFile);
                         this.$refs.videoPlayer.src = url;
                         
                         this.processing = true;
