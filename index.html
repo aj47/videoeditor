@@ -419,7 +419,6 @@
                         const file = event.target.files[0];
                         if (!file) return;
                         
-                        console.log('Processing selected file:', file.name);
                         
                         if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB
                             throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
@@ -476,7 +475,6 @@
                 },
 
                 parseSilenceDetection(output) {
-                    console.log('Raw silence detection output:', output);
                     const silenceStarts = [];
                     const silenceEnds = [];
                     const lines = output.split('\n');
@@ -486,11 +484,9 @@
                     lines.forEach(line => {
                         if (line.includes('silence_start')) {
                             const time = parseFloat(line.split('silence_start: ')[1]);
-                            console.log('Found silence start:', time);
                             silenceStarts.push(time);
                         } else if (line.includes('silence_end')) {
                             const time = parseFloat(line.split('silence_end: ')[1]);
-                            console.log('Found silence end:', time);
                             silenceEnds.push(time);
                         }
                     });
@@ -514,16 +510,6 @@
                                 blockStart = blockStart - minDuration;
                             }
                         }
-                        
-                        console.log('Block timing:', {
-                            originalStart: start,
-                            originalEnd: silenceEnds[i],
-                            bufferedStart: blockStart,
-                            bufferedEnd: blockEnd,
-                            buffer: BUFFER,
-                            minDuration: minDuration,
-                            actualDuration: blockEnd - blockStart
-                        });
                         
                         // Only create non-silence block if there's enough space
                         if (blockStart > currentTime) {
@@ -726,11 +712,6 @@
 
                 onTimeUpdate() {
                     const videoTime = this.$refs.videoPlayer.currentTime;
-                    console.log('Video timeupdate:', {
-                        previousTime: this.currentTime,
-                        newTime: videoTime,
-                        delta: videoTime - this.currentTime
-                    });
                     this.currentTime = videoTime;
                     this.updateCurrentBlock();
                     this.drawTimeline();
@@ -809,14 +790,6 @@
                         if (block.end < startTime || block.start > endTime) return;
                         const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
                         const w = Math.max(1, ((block.end - block.start) / visibleDuration) * width * this.timelineZoom);
-                    
-                        console.log('Rendering block:', {
-                            start: block.start,
-                            end: block.end,
-                            renderedX: x,
-                            renderedWidth: w,
-                            zoom: this.timelineZoom
-                        });
                     
                         ctx.fillStyle = block.color || 'gray';
                         ctx.fillRect(x, 0, w, height - 20);
@@ -964,7 +937,6 @@
                 },
 
                 async loadState(event) {
-                    console.log('loadState triggered', event);
                     // Ensure this is triggered by a user action
                     if (!event || !event.isTrusted) {
                         console.error('Load state must be triggered by a user action');
@@ -972,7 +944,6 @@
                     }
                     
                     try {
-                        console.log('Showing file picker for state loading...');
                         const [fileHandle] = await window.showOpenFilePicker({
                             types: [{
                                 description: 'JSON Files',
