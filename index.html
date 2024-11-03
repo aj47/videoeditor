@@ -12,7 +12,6 @@
     <link href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css" rel="stylesheet">
     <script src="/assets/ffmpeg/package/dist/umd/ffmpeg.js"></script>
     <script src="/assets/util/package/dist/umd/index.js"></script>
-    <script src="/chunks.js"></script>
 </head>
 <body>
     <div id="app">
@@ -427,33 +426,10 @@
                             }]
                         });
 
-                        // Process file in chunks if larger than 1GB
-                        if (file.size > 1024 * 1024 * 1024) { // 1GB
-                            this.processingMessage = 'Large file detected, processing in chunks...';
-                            
-                            await VideoChunker.processInChunks(file, async (chunkInfo) => {
-                                this.processingMessage = `Processing chunk ${Math.round(chunkInfo.start / chunkInfo.total * 100)}%...`;
-                                
-                                // Write chunk to FFmpeg
-                                await ffmpeg.writeFile(
-                                    `chunk_${chunkInfo.start}.mp4`,
-                                    new Uint8Array(await chunkInfo.chunk.arrayBuffer())
-                                );
-
-                                // Process chunk
-                                if (chunkInfo.isLastChunk) {
-                                    await this.detectSilence(`chunk_${chunkInfo.start}.mp4`);
-                                }
-
-                                // Cleanup chunk file
-                                await ffmpeg.deleteFile(`chunk_${chunkInfo.start}.mp4`);
-                            });
-                        } else {
-                            // Process small file normally
-                            const arrayBuffer = await file.arrayBuffer();
-                            await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
-                            await this.detectSilence('input.mp4');
-                        }
+                        // Process the file
+                        const arrayBuffer = await file.arrayBuffer();
+                        await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
+                        await this.detectSilence('input.mp4');
                         if ((await fileHandle.queryPermission({ mode: 'read' })) !== 'granted') {
                             const newPermission = await fileHandle.requestPermission({ mode: 'read' });
                             if (newPermission !== 'granted') {
