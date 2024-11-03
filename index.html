@@ -500,21 +500,29 @@
 
                     silenceStarts.forEach((start, i) => {
                         // Add buffer to block boundaries
-                        // Calculate block boundaries with buffer
+                        // Calculate initial block boundaries
                         const blockStart = Math.max(0, start - BUFFER);
-                        const blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
+                        let blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
                         
-                        // Ensure minimum block duration
+                        // Ensure minimum duration while preserving buffer zones
                         const minDuration = BUFFER * 2;
-                        const adjustedEnd = Math.max(blockEnd, blockStart + minDuration);
+                        if (blockEnd - blockStart < minDuration) {
+                            // Extend end time if possible, otherwise adjust start time
+                            if (blockEnd + minDuration <= this.duration) {
+                                blockEnd = blockEnd + minDuration;
+                            } else if (blockStart - minDuration >= 0) {
+                                blockStart = blockStart - minDuration;
+                            }
+                        }
                         
                         console.log('Block timing:', {
                             originalStart: start,
                             originalEnd: silenceEnds[i],
                             bufferedStart: blockStart,
-                            bufferedEnd: adjustedEnd,
+                            bufferedEnd: blockEnd,
                             buffer: BUFFER,
-                            minDuration: minDuration
+                            minDuration: minDuration,
+                            actualDuration: blockEnd - blockStart
                         });
                         
                         // Only create non-silence block if there's enough space
