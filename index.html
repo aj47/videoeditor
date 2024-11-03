@@ -479,8 +479,8 @@
                     const silenceStarts = [];
                     const silenceEnds = [];
                     const lines = output.split('\n');
-                    const BUFFER = 0.25; // 250ms buffer
-                    const MIN_BLOCK_DURATION = 0.5; // Minimum block duration
+                    const BUFFER = 0.5; // 500ms buffer
+                    const MIN_BLOCK_DURATION = 0.25; // Minimum block duration
 
                     lines.forEach(line => {
                         if (line.includes('silence_start')) {
