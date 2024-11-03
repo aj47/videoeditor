@@ -38,7 +38,7 @@
                     </button>
                     <button 
                         class="btn btn-sm" 
-                        @click="loadState"
+                        @click="loadState($event)"
                     >
                         Load State
                     </button>
@@ -884,7 +884,13 @@
                     this.isOverwriteMode = !this.isOverwriteMode;
                 },
 
-                async loadState() {
+                async loadState(event) {
+                    // Ensure this is triggered by a user action
+                    if (!event || !event.isTrusted) {
+                        console.error('Load state must be triggered by a user action');
+                        return;
+                    }
+                    
                     try {
                         const [fileHandle] = await window.showOpenFilePicker({
                             types: [{
