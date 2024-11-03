@@ -702,10 +702,10 @@
                     ctx.clearRect(0, 0, width, height);
 
                     // Calculate visible range based on zoom
-                    const visibleDuration = this.duration / this.timelineZoom;
+                    const visibleDuration = this.duration;
                     const centerTime = this.currentTime;
-                    const startTime = Math.max(0, centerTime - visibleDuration / 2);
-                    const endTime = Math.min(this.duration, centerTime + visibleDuration / 2);
+                    const startTime = 0;
+                    const endTime = this.duration;
 
                     // Draw time markers
                     ctx.fillStyle = '#666';
@@ -722,8 +722,8 @@
                     this.blocks.forEach(block => {
                         if (block.end < startTime || block.start > endTime) return;
                         
-                        const x = ((block.start - startTime) / visibleDuration) * width;
-                        const w = ((block.end - block.start) / visibleDuration) * width;
+                        const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
+                        const w = ((block.end - block.start) / visibleDuration) * width * this.timelineZoom;
                         
                         // Draw block background
                         ctx.fillStyle = block.color || 'gray';
@@ -745,7 +745,7 @@
                     });
 
                     // Draw playhead
-                    const playheadX = ((this.currentTime - startTime) / visibleDuration) * width;
+                    const playheadX = ((this.currentTime - startTime) / visibleDuration) * width * this.timelineZoom;
                     ctx.globalAlpha = 1;
                     
                     // Playhead line
