@@ -398,8 +398,9 @@
                 },
 
                 async onFileSelect(event) {
+                    console.log('onFileSelect triggered', event);
                     try {
-                        // Get the file handle using showOpenFilePicker
+                        console.log('Showing file picker...');
                         const [fileHandle] = await window.showOpenFilePicker({
                             types: [{
                                 description: 'Video Files',
@@ -885,6 +886,7 @@
                 },
 
                 async loadState(event) {
+                    console.log('loadState triggered', event);
                     // Ensure this is triggered by a user action
                     if (!event || !event.isTrusted) {
                         console.error('Load state must be triggered by a user action');
@@ -892,6 +894,7 @@
                     }
                     
                     try {
+                        console.log('Showing file picker for state loading...');
                         const [fileHandle] = await window.showOpenFilePicker({
                             types: [{
                                 description: 'JSON Files',
