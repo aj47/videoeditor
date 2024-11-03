@@ -282,7 +282,8 @@
                     newLabelHotkey: '',
                     isOverwriteMode: true,
                     hoverTime: null,
-                    hoverTimePosition: 0
+                    hoverTimePosition: 0,
+                    currentFileHandle: null
                 }
             },
 
@@ -396,24 +397,71 @@
                 },
 
                 async onFileSelect(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-
-                    const url = URL.createObjectURL(file);
-                    this.$refs.videoPlayer.src = url;
-                    
-                    this.processing = true;
-                    this.processingMessage = 'Processing video...';
-                    
                     try {
-                        await this.detectSilence(file);
+                        // Get the file handle using showOpenFilePicker
+                        const [fileHandle] = await window.showOpenFilePicker({
+                            types: [{
+                                description: 'Video Files',
+                                accept: {
+                                    'video/*': ['.mp4', '.webm', '.mov', '.avi']
+                                }
+                            }]
+                        });
+
+                        // Request read permission
+                        if ((await fileHandle.queryPermission({ mode: 'read' })) !== 'granted') {
+                            const newPermission = await fileHandle.requestPermission({ mode: 'read' });
+                            if (newPermission !== 'granted') {
+                                throw new Error('Permission to read file was denied');
+                            }
+                        }
+
+                        // Store file handle for later use
+                        this.currentFileHandle = fileHandle;
+
+                        // Get fresh file and create URL for video playback
+                        let file;
+                        try {
+                            file = await this.currentFileHandle.getFile();
+                        } catch (error) {
+                            if (error instanceof NotReadableError) {
+                                // Try requesting permission again
+                                const newPermission = await this.currentFileHandle.requestPermission({ mode: 'read' });
+                                if (newPermission !== 'granted') {
+                                    throw new Error('Lost permission to read file');
+                                }
+                                file = await this.currentFileHandle.getFile();
+                            } else {
+                                throw error;
+                            }
+                        }
+
+                        const url = URL.createObjectURL(file);
+                        this.$refs.videoPlayer.src = url;
+                        
+                        this.processing = true;
+                        this.processingMessage = 'Processing video...';
+
+                        // Read the entire file at once with fresh file handle
+                        this.processingMessage = 'Reading file...';
+                        const freshFile = await this.currentFileHandle.getFile();
+                        const arrayBuffer = await freshFile.arrayBuffer();
+                        
+                        // Write to FFmpeg
+                        this.processingMessage = 'Writing to FFmpeg...';
+                        await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
+                        
+                        this.processingMessage = 'Processing video...';
+                        await this.detectSilence();
+                    } catch (error) {
+                        console.error('File processing error:', error);
+                        alert(error.message);
                     } finally {
                         this.processing = false;
                     }
                 },
 
-                async detectSilence(file) {
-                    const data = await file.arrayBuffer();
+                async detectSilence() {
                     let silenceLog = '';
                     
                     // Set up log handler before processing
@@ -426,7 +474,6 @@
                     ffmpeg.on('log', logHandler);
                     
                     try {
-                        await ffmpeg.writeFile('input.mp4', new Uint8Array(data));
                         
                         await ffmpeg.exec([
                             '-i', 'input.mp4',
@@ -839,8 +886,18 @@
                             }]
                         });
                         
+                        // Verify we can read the file
+                        if ((await fileHandle.queryPermission({ mode: 'read' })) !== 'granted') {
+                            const newPermission = await fileHandle.requestPermission({ mode: 'read' });
+                            if (newPermission !== 'granted') {
+                                throw new Error('Permission to read file was denied');
+                            }
+                        }
+                        
+                        // Get a fresh file handle and read it immediately
                         const file = await fileHandle.getFile();
-                        const state = JSON.parse(await file.text());
+                        const text = await file.text();
+                        const state = JSON.parse(text);
                         
                         // Validate state structure
                         if (!state.videoPath || !Array.isArray(state.blocks)) {
