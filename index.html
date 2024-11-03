@@ -479,6 +479,8 @@
                     const silenceStarts = [];
                     const silenceEnds = [];
                     const lines = output.split('\n');
+                    const BUFFER = 0.25; // 250ms buffer
+                    const MIN_BLOCK_DURATION = 0.5; // Minimum block duration
 
                     lines.forEach(line => {
                         if (line.includes('silence_start')) {
@@ -494,36 +496,60 @@
                     let currentTime = 0;
 
                     silenceStarts.forEach((start, i) => {
-                        if (start > currentTime) {
-                            blocks.push({
+                        // Add buffer to block boundaries
+                        const blockStart = Math.max(0, start - BUFFER);
+                        const blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
+                        
+                        // Only create non-silence block if there's enough space
+                        if (blockStart > currentTime) {
+                            const nonSilenceBlock = {
                                 start: currentTime,
-                                end: start,
+                                end: blockStart,
                                 isSilence: false,
                                 visited: false,
                                 label: 'misc',
                                 color: 'green'
-                            });
+                            };
+                            
+                            // Only add if block is long enough
+                            if (nonSilenceBlock.end - nonSilenceBlock.start >= MIN_BLOCK_DURATION) {
+                                blocks.push(nonSilenceBlock);
+                            }
                         }
-                        blocks.push({
-                            start: start,
-                            end: silenceEnds[i],
+
+                        // Add silence block
+                        const silenceBlock = {
+                            start: blockStart,
+                            end: blockEnd,
                             isSilence: true,
                             visited: false,
                             label: 'to-remove',
                             color: 'red'
-                        });
-                        currentTime = silenceEnds[i];
+                        };
+                        
+                        // Only add if block is long enough
+                        if (silenceBlock.end - silenceBlock.start >= MIN_BLOCK_DURATION) {
+                            blocks.push(silenceBlock);
+                        }
+                        
+                        currentTime = blockEnd;
                     });
 
+                    // Add final block if needed
                     if (currentTime < this.duration) {
-                        blocks.push({
+                        const finalBlock = {
                             start: currentTime,
                             end: this.duration,
                             isSilence: false,
                             visited: false,
                             label: 'misc',
                             color: 'green'
-                        });
+                        };
+                        
+                        // Only add if block is long enough
+                        if (finalBlock.end - finalBlock.start >= MIN_BLOCK_DURATION) {
+                            blocks.push(finalBlock);
+                        }
                     }
 
                     return blocks;
