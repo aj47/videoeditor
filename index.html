@@ -417,15 +417,6 @@
                         this.processingMessage = 'Processing video...';
 
                         // Process file in chunks if larger than 1GB
-                        if (file.size > 1024 * 1024 * 1024) { // 1GB
-                            types: [{
-                                description: 'Video Files',
-                                accept: {
-                                    'video/*': ['.mp4', '.webm', '.mov', '.avi']
-                                }
-                            }]
-                        });
-
                         // Process the file
                         const arrayBuffer = await file.arrayBuffer();
                         await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
