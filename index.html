@@ -701,73 +701,114 @@
                     }
                 },
 
-                drawTimeline() {
+                initTimeline() {
                     const canvas = this.$refs.timelineCanvas;
-                    const ctx = canvas.getContext('2d');
-                    const width = canvas.width;
-                    const height = canvas.height;
+                    // Create offscreen canvas for double buffering
+                    this.offscreenCanvas = document.createElement('canvas');
+                    this.offscreenCanvas.width = canvas.width;
+                    this.offscreenCanvas.height = canvas.height;
+                    
+                    // Set up high-performance rendering
+                    canvas.style.imageRendering = 'crisp-edges';
+                    this.ctx = canvas.getContext('2d', {
+                        alpha: false,
+                        desynchronized: true
+                    });
+                    this.offscreenCtx = this.offscreenCanvas.getContext('2d', {
+                        alpha: false
+                    });
+                    
+                    // Start render loop
+                    this.renderTimeline();
+                },
 
-                    // Clear canvas
-                    ctx.clearRect(0, 0, width, height);
-
-                    // Calculate visible range based on zoom
+                renderTimeline() {
+                    requestAnimationFrame(this.renderTimeline);
+                    if (!this.shouldRedraw) return;
+                    this.shouldRedraw = false;
+                    
+                    const width = this.offscreenCanvas.width;
+                    const height = this.offscreenCanvas.height;
+                    const ctx = this.offscreenCtx;
+                    
+                    // Clear with background
+                    ctx.fillStyle = '#1a1a1a';
+                    ctx.fillRect(0, 0, width, height);
+                    
                     const visibleDuration = this.duration;
-                    const centerTime = this.currentTime;
                     const startTime = 0;
                     const endTime = this.duration;
-
-                    // Draw time markers
-                    ctx.fillStyle = '#666';
-                    ctx.font = '10px sans-serif';
+                    
+                    // Batch similar operations for better performance
+                    ctx.save();
+                    
+                    // Draw all block backgrounds first
+                    this.blocks.forEach(block => {
+                        if (block.end < startTime || block.start > endTime) return;
+                        const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
+                        const w = Math.max(1, ((block.end - block.start) / visibleDuration) * width * this.timelineZoom);
+                        
+                        ctx.fillStyle = block.color || 'gray';
+                        ctx.fillRect(x, 0, w, height - 20);
+                    });
+                    
+                    // Draw time markers with crisp lines
+                    ctx.strokeStyle = '#666';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
                     const markerInterval = Math.max(1, Math.floor(visibleDuration / 10));
                     
                     for (let t = Math.floor(startTime); t <= endTime; t += markerInterval) {
-                        const x = ((t - startTime) / visibleDuration) * width;
-                        ctx.fillRect(x, height - 15, 1, 5);
-                        ctx.fillText(this.formatTime(t), x - 20, height - 5);
+                        const x = Math.floor(((t - startTime) / visibleDuration) * width) + 0.5;
+                        ctx.moveTo(x, height - 15);
+                        ctx.lineTo(x, height);
                     }
-
-                    // Draw blocks
+                    ctx.stroke();
+                    
+                    // Draw time labels
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '10px monospace';
+                    ctx.textAlign = 'center';
+                    for (let t = Math.floor(startTime); t <= endTime; t += markerInterval) {
+                        const x = ((t - startTime) / visibleDuration) * width;
+                        ctx.fillText(this.formatTime(t), x, height - 5);
+                    }
+                    
+                    // Draw block labels efficiently
+                    ctx.font = 'bold 12px sans-serif';
                     this.blocks.forEach(block => {
                         if (block.end < startTime || block.start > endTime) return;
-                        
                         const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
                         const w = ((block.end - block.start) / visibleDuration) * width * this.timelineZoom;
                         
-                        // Draw block background
-                        ctx.fillStyle = block.color || 'gray';
-                        ctx.globalAlpha = 0.6;
-                        ctx.fillRect(x, 0, w, height - 20);
-                        
-                        // Draw block border
-                        ctx.globalAlpha = 1;
-                        ctx.strokeStyle = block.color || 'gray';
-                        ctx.lineWidth = 2;
-                        ctx.strokeRect(x, 0, w, height - 20);
-                        
-                        // Draw label if block is wide enough
                         if (w > 50) {
-                            ctx.fillStyle = '#fff';
-                            ctx.font = 'bold 12px sans-serif';
                             ctx.fillText(block.label, x + 5, height - 30);
                         }
                     });
-
-                    // Draw playhead
-                    const playheadX = ((this.currentTime - startTime) / visibleDuration) * width * this.timelineZoom;
-                    ctx.globalAlpha = 1;
                     
-                    // Playhead line
+                    // Draw playhead with anti-aliasing
+                    const playheadX = Math.floor(((this.currentTime - startTime) / visibleDuration) * width * this.timelineZoom) + 0.5;
+                    
                     ctx.fillStyle = '#fff';
-                    ctx.fillRect(playheadX - 1, 0, 2, height);
+                    ctx.beginPath();
+                    ctx.moveTo(playheadX, 0);
+                    ctx.lineTo(playheadX, height);
+                    ctx.stroke();
                     
-                    // Playhead triangle
                     ctx.beginPath();
                     ctx.moveTo(playheadX - 8, height - 15);
                     ctx.lineTo(playheadX + 8, height - 15);
                     ctx.lineTo(playheadX, height);
-                    ctx.closePath();
                     ctx.fill();
+                    
+                    ctx.restore();
+                    
+                    // Swap buffers
+                    this.ctx.drawImage(this.offscreenCanvas, 0, 0);
+                },
+
+                drawTimeline() {
+                    this.shouldRedraw = true;
                 },
 
                 seekToPosition(event) {
