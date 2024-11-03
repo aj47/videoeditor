@@ -310,6 +310,11 @@
             },
 
             async mounted() {
+                // Initialize timeline
+                this.$nextTick(() => {
+                    this.initTimeline();
+                });
+                
                 // Load saved labels or use defaults
                 const savedLabels = localStorage.getItem('videoEditorLabels');
                 if (savedLabels) {
