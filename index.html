@@ -416,62 +416,10 @@
                         this.processing = true;
                         this.processingMessage = 'Processing video...';
 
-                        // Process file in chunks if larger than 1GB
                         // Process the file
                         const arrayBuffer = await file.arrayBuffer();
                         await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
                         await this.detectSilence('input.mp4');
-                        if ((await fileHandle.queryPermission({ mode: 'read' })) !== 'granted') {
-                            const newPermission = await fileHandle.requestPermission({ mode: 'read' });
-                            if (newPermission !== 'granted') {
-                                throw new Error('Permission to read file was denied');
-                            }
-                        }
-
-                        // Store file handle for later use
-                        this.currentFileHandle = fileHandle;
-
-                        // Get fresh file and validate size
-                        const freshFile = await fileHandle.getFile();
-                        
-                        if (freshFile.size > 2 * 1024 * 1024 * 1024) { // 2GB
-                            throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
-                        }
-
-                        // Create URL for video playback
-                        const videoUrl = URL.createObjectURL(freshFile);
-                        this.$refs.videoPlayer.src = videoUrl;
-                        
-                        this.processing = true;
-                        this.processingMessage = 'Processing video...';
-
-                        // Process file in chunks if larger than 1GB
-                        if (freshFile.size > 1024 * 1024 * 1024) { // 1GB
-                            this.processingMessage = 'Large file detected, processing in chunks...';
-                            
-                            await VideoChunker.processInChunks(file, async (chunkInfo) => {
-                                this.processingMessage = `Processing chunk ${Math.round(chunkInfo.start / chunkInfo.total * 100)}%...`;
-                                
-                                // Write chunk to FFmpeg
-                                await ffmpeg.writeFile(
-                                    `chunk_${chunkInfo.start}.mp4`,
-                                    new Uint8Array(await chunkInfo.chunk.arrayBuffer())
-                                );
-
-                                // Process chunk
-                                if (chunkInfo.isLastChunk) {
-                                    await this.detectSilence(`chunk_${chunkInfo.start}.mp4`);
-                                }
-
-                                // Cleanup chunk file
-                                await ffmpeg.deleteFile(`chunk_${chunkInfo.start}.mp4`);
-                            });
-                        } else {
-                            // Process small file normally
-                            const arrayBuffer = await file.arrayBuffer();
-                            await ffmpeg.writeFile('input.mp4', new Uint8Array(arrayBuffer));
-                            await this.detectSilence('input.mp4');
-                        }
                     } catch (error) {
                         console.error('File processing error:', error);
                         alert(error.message);
