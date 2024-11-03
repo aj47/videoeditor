@@ -414,18 +414,18 @@
 
                 async onFileSelect(event) {
                     console.log('onFileSelect triggered', event);
+                    let url;
                     try {
                         // Use the selected file from the input
                         const file = event.target.files[0];
                         if (!file) return;
-                        
                         
                         if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB
                             throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
                         }
 
                         // Create URL for video playback
-                        const url = URL.createObjectURL(file);
+                        url = URL.createObjectURL(file);
                         this.$refs.videoPlayer.src = url;
                         
                         this.processing = true;
@@ -440,6 +440,9 @@
                         alert(error.message);
                     } finally {
                         this.processing = false;
+                        if (url) {
+                            URL.revokeObjectURL(url);
+                        }
                     }
                 },
 
