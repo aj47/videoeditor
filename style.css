@@ -8,3 +8,34 @@ body {
   flex-direction: column;
   align-items: center;
 }
+
+/* Timeline scrolling */
+.overflow-x-auto {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Playhead slider styling */
+.range {
+  height: 8px;
+  background: #4a5568;
+  border-radius: 4px;
+}
+
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}

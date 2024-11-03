@@ -61,8 +61,19 @@
                         @durationchange="onDurationChange"
                     ></video>
 
+                    <!-- Playhead Slider -->
+                    <div class="mt-4">
+                        <input 
+                            type="range" 
+                            v-model.number="currentTime" 
+                            :max="duration" 
+                            step="0.01"
+                            class="range range-xs w-full"
+                        >
+                    </div>
+
                     <!-- Timeline -->
-                    <div class="mt-4 relative">
+                    <div class="mt-2 relative overflow-x-auto">
                         <div class="flex justify-between text-xs mb-1">
                             <span>{{ formatTime(0) }}</span>
                             <span>{{ formatTime(duration) }}</span>
@@ -71,7 +82,7 @@
                             ref="timelineCanvas" 
                             class="w-full h-24 bg-base-300 rounded-lg cursor-pointer"
                             @click="seekToPosition"
-                            @wheel.prevent="handleTimelineWheel"
+                            @wheel.prevent="handleTimelineScroll"
                             @mousemove="updateTimelineHover"
                         ></canvas>
                         <div 
@@ -631,12 +642,10 @@
                     return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
                 },
 
-                handleTimelineWheel(event) {
-                    if (event.deltaY < 0) {
-                        this.zoomIn();
-                    } else {
-                        this.zoomOut();
-                    }
+                handleTimelineScroll(event) {
+                    const canvas = this.$refs.timelineCanvas;
+                    const scrollAmount = event.deltaY;
+                    canvas.parentElement.scrollLeft += scrollAmount;
                 },
 
                 updateTimelineHover(event) {
