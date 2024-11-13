@@ -478,30 +478,48 @@
                 },
 
                 parseSilenceDetection(output) {
+                    console.log('Starting parseSilenceDetection with output:', output);
+                    
                     let silenceStarts = [];
                     let silenceEnds = [];
                     let lines = output.split('\n');
                     const BUFFER = 0.5; // 500ms buffer
                     const MIN_BLOCK_DURATION = 0.25; // Minimum block duration
 
-                    lines.forEach(line => {
-                        const startMatch = line.match(/silence_start: (\d+\.\d+)/);
-                        const endMatch = line.match(/silence_end: (\d+\.\d+)/);
-                        
-                        if (startMatch) {
-                            silenceStarts.push(parseFloat(startMatch[1]));
-                        }
-                        if (endMatch) {
-                            silenceEnds.push(parseFloat(endMatch[1]));
-                        }
-                    });
+                    console.log('Initial lines:', lines);
 
-                    // Ensure silenceStarts and silenceEnds are sorted and match
-                    silenceStarts = silenceStarts.sort((a, b) => a - b);
-                    silenceEnds = silenceEnds.sort((a, b) => a - b);
+                    try {
+                        lines.forEach((line, index) => {
+                            console.log(`Processing line ${index}: ${line}`);
+                            const startMatch = line.match(/silence_start: (\d+\.\d+)/);
+                            const endMatch = line.match(/silence_end: (\d+\.\d+)/);
+                            
+                            if (startMatch) {
+                                const startTime = parseFloat(startMatch[1]);
+                                console.log(`Found silence start: ${startTime}`);
+                                silenceStarts.push(startTime);
+                            }
+                            if (endMatch) {
+                                const endTime = parseFloat(endMatch[1]);
+                                console.log(`Found silence end: ${endTime}`);
+                                silenceEnds.push(endTime);
+                            }
+                        });
 
-                    let blocks = [];
-                    let currentTime = 0;
+                        console.log('Silence starts:', silenceStarts);
+                        console.log('Silence ends:', silenceEnds);
+
+                        // Ensure silenceStarts and silenceEnds are sorted and match
+                        silenceStarts = silenceStarts.slice().sort((a, b) => a - b);
+                        silenceEnds = silenceEnds.slice().sort((a, b) => a - b);
+
+                        console.log('Sorted silence starts:', silenceStarts);
+                        console.log('Sorted silence ends:', silenceEnds);
+
+                        let blocks = [];
+                        let currentTime = 0;
+
+                        console.log('Current duration:', this.duration);
 
                     silenceStarts.forEach((start, i) => {
                         // Ensure we have a corresponding end time
