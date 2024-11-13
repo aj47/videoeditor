@@ -480,7 +480,7 @@
                 parseSilenceDetection(output) {
                     let silenceStarts = [];
                     let silenceEnds = [];
-                    const lines = output.split('\n');
+                    let lines = output.split('\n');
                     const BUFFER = 0.5; // 500ms buffer
                     const MIN_BLOCK_DURATION = 0.25; // Minimum block duration
 
@@ -500,7 +500,7 @@
                     silenceStarts = silenceStarts.sort((a, b) => a - b);
                     silenceEnds = silenceEnds.sort((a, b) => a - b);
 
-                    const blocks = [];
+                    let blocks = [];
                     let currentTime = 0;
 
                     silenceStarts.forEach((start, i) => {
