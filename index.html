@@ -1100,7 +1100,17 @@
 
                         console.log('Unique labels for export:', labels);
 
-                        const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
+                        // Handle blob URLs differently than regular URLs
+                        let inputVideo;
+                        if (this.$refs.videoPlayer.src.startsWith('blob:')) {
+                            console.log('Handling blob URL source');
+                            const response = await fetch(this.$refs.videoPlayer.src);
+                            const blob = await response.blob();
+                            inputVideo = new Uint8Array(await blob.arrayBuffer());
+                        } else {
+                            console.log('Handling regular URL source');
+                            inputVideo = await fetchFile(this.$refs.videoPlayer.src);
+                        }
                         console.log('Input video file size:', inputVideo.byteLength, 'bytes');
                         
                         await ffmpeg.writeFile('input.mp4', inputVideo);
