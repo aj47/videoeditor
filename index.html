@@ -424,6 +424,10 @@
                             throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
                         }
 
+                        // Store the video data for later use
+                        const arrayBuffer = await file.arrayBuffer();
+                        this.$refs.videoPlayer._videoData = new Uint8Array(arrayBuffer);
+
                         // Create URL for video playback
                         url = URL.createObjectURL(file);
                         this.$refs.videoPlayer.src = url;
@@ -1100,16 +1104,23 @@
 
                         console.log('Unique labels for export:', labels);
 
-                        // Handle blob URLs differently than regular URLs
+                        // Get video data from source
                         let inputVideo;
-                        if (this.$refs.videoPlayer.src.startsWith('blob:')) {
+                        if (this.$refs.videoPlayer._videoData) {
+                            console.log('Using cached video data');
+                            inputVideo = this.$refs.videoPlayer._videoData;
+                        } else if (this.$refs.videoPlayer.src.startsWith('blob:')) {
                             console.log('Handling blob URL source');
-                            const response = await fetch(this.$refs.videoPlayer.src);
-                            const blob = await response.blob();
-                            inputVideo = new Uint8Array(await blob.arrayBuffer());
+                            // Create a new blob URL and store the data
+                            const videoBlob = await fetch(this.$refs.videoPlayer.src).then(r => r.blob());
+                            inputVideo = new Uint8Array(await videoBlob.arrayBuffer());
+                            // Cache the video data for future exports
+                            this.$refs.videoPlayer._videoData = inputVideo;
                         } else {
                             console.log('Handling regular URL source');
                             inputVideo = await fetchFile(this.$refs.videoPlayer.src);
+                            // Cache the video data for future exports
+                            this.$refs.videoPlayer._videoData = inputVideo;
                         }
                         console.log('Input video file size:', inputVideo.byteLength, 'bytes');
                         
