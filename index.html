@@ -1203,20 +1203,58 @@
                                 const data = await ffmpeg.readFile(`output_${label}.mp4`);
                                 console.log(`Output video size for ${label}:`, data.byteLength, 'bytes');
                                 
-                                const blob = new Blob([data], { type: 'video/mp4' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = `exported_${label}.mp4`;
-                                a.style.display = 'none';
-                                document.body.appendChild(a);
+                                console.log(`Creating blob for ${label}, data size: ${data.byteLength} bytes`);
                                 
-                                // Use setTimeout to ensure the download starts before revoking
-                                setTimeout(() => {
-                                    a.click();
-                                    document.body.removeChild(a);
-                                    URL.revokeObjectURL(url);
-                                }, 100);
+                                try {
+                                    const blob = new Blob([data], { type: 'video/mp4' });
+                                    console.log(`Blob created successfully, size: ${blob.size} bytes`);
+                                    
+                                    const url = URL.createObjectURL(blob);
+                                    console.log(`Blob URL created: ${url}`);
+                                    
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `exported_${label}.mp4`;
+                                    a.style.display = 'none';
+                                    
+                                    // Log memory usage
+                                    if (window.performance && performance.memory) {
+                                        console.log('Memory usage:', {
+                                            usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB',
+                                            totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + 'MB'
+                                        });
+                                    }
+                                    
+                                    document.body.appendChild(a);
+                                    console.log('Download link created and added to document');
+                                    
+                                    // Increased timeout and added error handling
+                                    const downloadTimeout = Math.max(1000, Math.floor(data.byteLength / 1024 / 1024 * 100));
+                                    console.log(`Setting download timeout to ${downloadTimeout}ms based on file size`);
+                                    
+                                    setTimeout(() => {
+                                        try {
+                                            console.log('Initiating download click');
+                                            a.click();
+                                            console.log('Download initiated');
+                                            
+                                            // Delay cleanup
+                                            setTimeout(() => {
+                                                console.log('Starting cleanup');
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(url);
+                                                console.log('Cleanup completed, blob URL revoked');
+                                            }, 1000);
+                                        } catch (downloadError) {
+                                            console.error('Error during download:', downloadError);
+                                            alert(`Download failed for ${label}: ${downloadError.message}`);
+                                        }
+                                    }, downloadTimeout);
+                                    
+                                } catch (blobError) {
+                                    console.error('Error creating blob:', blobError);
+                                    throw new Error(`Failed to create blob for ${label}: ${blobError.message}`);
+                                }
 
                                 // Clean up
                                 for (let i = 0; i < labelBlocks.length; i++) {
