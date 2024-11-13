@@ -480,9 +480,10 @@
                 parseSilenceDetection(output) {
                     console.log('Starting parseSilenceDetection with output:', output);
                     
+                    // Use let instead of const for variables that might be reassigned
                     let silenceStarts = [];
                     let silenceEnds = [];
-                    let lines = output.split('\n');
+                    const lines = output.split('\n');
                     const BUFFER = 0.5; // 500ms buffer
                     const MIN_BLOCK_DURATION = 0.25; // Minimum block duration
 
@@ -497,55 +498,93 @@
                             if (startMatch) {
                                 const startTime = parseFloat(startMatch[1]);
                                 console.log(`Found silence start: ${startTime}`);
-                                silenceStarts.push(startTime);
+                                silenceStarts = [...silenceStarts, startTime]; // Use spread to create a new array
                             }
                             if (endMatch) {
                                 const endTime = parseFloat(endMatch[1]);
                                 console.log(`Found silence end: ${endTime}`);
-                                silenceEnds.push(endTime);
+                                silenceEnds = [...silenceEnds, endTime]; // Use spread to create a new array
                             }
                         });
 
                         console.log('Silence starts:', silenceStarts);
                         console.log('Silence ends:', silenceEnds);
 
-                        // Ensure silenceStarts and silenceEnds are sorted and match
-                        silenceStarts = silenceStarts.slice().sort((a, b) => a - b);
-                        silenceEnds = silenceEnds.slice().sort((a, b) => a - b);
+                        // Create new arrays to avoid modifying original
+                        const sortedSilenceStarts = [...silenceStarts].sort((a, b) => a - b);
+                        const sortedSilenceEnds = [...silenceEnds].sort((a, b) => a - b);
 
-                        console.log('Sorted silence starts:', silenceStarts);
-                        console.log('Sorted silence ends:', silenceEnds);
+                        console.log('Sorted silence starts:', sortedSilenceStarts);
+                        console.log('Sorted silence ends:', sortedSilenceEnds);
 
-                        let blocks = [];
+                        const blocks = [];
                         let currentTime = 0;
 
                         console.log('Current duration:', this.duration);
 
-                    silenceStarts.forEach((start, i) => {
-                        // Ensure we have a corresponding end time
-                        if (i >= silenceEnds.length) return;
+                        sortedSilenceStarts.forEach((start, i) => {
+                            // Ensure we have a corresponding end time
+                            if (i >= sortedSilenceEnds.length) return;
 
-                        // Add buffer to block boundaries
-                        // Calculate initial block boundaries
-                        let blockStart = Math.max(0, start - BUFFER);
-                        let blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
-                        
-                        // Ensure minimum duration while preserving buffer zones
-                        let minDuration = BUFFER * 2;
-                        if (blockEnd - blockStart < minDuration) {
-                            // Extend end time if possible, otherwise adjust start time
-                            if (blockEnd + minDuration <= this.duration) {
-                                blockEnd = blockEnd + minDuration;
-                            } else if (blockStart - minDuration >= 0) {
-                                blockStart = blockStart - minDuration;
+                            // Add buffer to block boundaries
+                            // Calculate initial block boundaries
+                            const blockStart = Math.max(0, start - BUFFER);
+                            const blockEnd = Math.min(this.duration, sortedSilenceEnds[i] + BUFFER);
+                            
+                            // Ensure minimum duration while preserving buffer zones
+                            const minDuration = BUFFER * 2;
+                            let adjustedBlockStart = blockStart;
+                            let adjustedBlockEnd = blockEnd;
+
+                            if (blockEnd - blockStart < minDuration) {
+                                // Extend end time if possible, otherwise adjust start time
+                                if (blockEnd + minDuration <= this.duration) {
+                                    adjustedBlockEnd = blockEnd + minDuration;
+                                } else if (blockStart - minDuration >= 0) {
+                                    adjustedBlockStart = blockStart - minDuration;
+                                }
                             }
-                        }
-                        
-                        // Only create non-silence block if there's enough space
-                        if (blockStart > currentTime) {
-                            const nonSilenceBlock = {
+                            
+                            // Only create non-silence block if there's enough space
+                            if (adjustedBlockStart > currentTime) {
+                                const nonSilenceBlock = {
+                                    start: currentTime,
+                                    end: adjustedBlockStart,
+                                    isSilence: false,
+                                    visited: false,
+                                    label: 'misc',
+                                    color: 'green'
+                                };
+                                
+                                // Only add if block is long enough
+                                if (nonSilenceBlock.end - nonSilenceBlock.start >= MIN_BLOCK_DURATION) {
+                                    blocks.push(nonSilenceBlock);
+                                }
+                            }
+
+                            // Add silence block
+                            const silenceBlock = {
+                                start: adjustedBlockStart,
+                                end: adjustedBlockEnd,
+                                isSilence: true,
+                                visited: false,
+                                label: 'to-remove',
+                                color: 'red'
+                            };
+                            
+                            // Only add if block is long enough
+                            if (silenceBlock.end - silenceBlock.start >= MIN_BLOCK_DURATION) {
+                                blocks.push(silenceBlock);
+                            }
+                            
+                            currentTime = adjustedBlockEnd;
+                        });
+
+                        // Add final block if needed
+                        if (currentTime < this.duration) {
+                            const finalBlock = {
                                 start: currentTime,
-                                end: blockStart,
+                                end: this.duration,
                                 isSilence: false,
                                 visited: false,
                                 label: 'misc',
@@ -553,47 +592,16 @@
                             };
                             
                             // Only add if block is long enough
-                            if (nonSilenceBlock.end - nonSilenceBlock.start >= MIN_BLOCK_DURATION) {
-                                blocks.push(nonSilenceBlock);
+                            if (finalBlock.end - finalBlock.start >= MIN_BLOCK_DURATION) {
+                                blocks.push(finalBlock);
                             }
                         }
 
-                        // Add silence block
-                        const silenceBlock = {
-                            start: blockStart,
-                            end: blockEnd,
-                            isSilence: true,
-                            visited: false,
-                            label: 'to-remove',
-                            color: 'red'
-                        };
-                        
-                        // Only add if block is long enough
-                        if (silenceBlock.end - silenceBlock.start >= MIN_BLOCK_DURATION) {
-                            blocks.push(silenceBlock);
-                        }
-                        
-                        currentTime = blockEnd;
-                    });
-
-                    // Add final block if needed
-                    if (currentTime < this.duration) {
-                        const finalBlock = {
-                            start: currentTime,
-                            end: this.duration,
-                            isSilence: false,
-                            visited: false,
-                            label: 'misc',
-                            color: 'green'
-                        };
-                        
-                        // Only add if block is long enough
-                        if (finalBlock.end - finalBlock.start >= MIN_BLOCK_DURATION) {
-                            blocks.push(finalBlock);
-                        }
+                        return blocks;
+                    } catch (error) {
+                        console.error('Error in parseSilenceDetection:', error);
+                        return []; // Return empty array in case of error
                     }
-
-                    return blocks;
                 },
 
                 playPause() {
