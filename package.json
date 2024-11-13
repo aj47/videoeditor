@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "wrangler pages dev .",
+    "test": "npx playwright test",
     "deploy": "wrangler pages deploy ."
   },
   "author": "Jerome Wu <jeromewus@gmail.com>",
