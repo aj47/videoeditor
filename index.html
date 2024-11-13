@@ -504,7 +504,7 @@
                         let blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
                         
                         // Ensure minimum duration while preserving buffer zones
-                        const minDuration = BUFFER * 2;
+                        let minDuration = BUFFER * 2;
                         if (blockEnd - blockStart < minDuration) {
                             // Extend end time if possible, otherwise adjust start time
                             if (blockEnd + minDuration <= this.duration) {
