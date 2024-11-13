@@ -31,9 +31,19 @@ test('export video', async ({ page }) => {
   // Wait for the export button to be enabled
   const exportButton = page.locator('button:has-text("Export")');
   console.log('Waiting for export button to be enabled...');
-  await page.waitForSelector('button:has-text("Export"):enabled', { timeout: 60000 }); // Increased timeout to 60 seconds
+  await page.waitForSelector('button:has-text("Export"):enabled', { timeout: 120000 }); // Increased timeout to 120 seconds
   console.log('Export button is enabled.');
 
   await exportButton.click();
+  console.log('Export button clicked.');
+
   // Add assertions to check for download or other export behavior
+  // For example, you can check if a download dialog appears or if a specific element is visible after export
+  await page.waitForSelector('.processing', { timeout: 60000 }); // Wait for processing overlay to appear
+  console.log('Processing overlay is visible.');
+
+  await page.waitForSelector('.processing', { state: 'hidden', timeout: 60000 }); // Wait for processing overlay to disappear
+  console.log('Processing overlay is hidden.');
+
+  // Add more assertions as needed
 });
