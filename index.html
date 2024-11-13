@@ -500,7 +500,7 @@
                     silenceStarts.forEach((start, i) => {
                         // Add buffer to block boundaries
                         // Calculate initial block boundaries
-                        const blockStart = Math.max(0, start - BUFFER);
+                        let blockStart = Math.max(0, start - BUFFER);
                         let blockEnd = Math.min(this.duration, silenceEnds[i] + BUFFER);
                         
                         // Ensure minimum duration while preserving buffer zones
@@ -791,8 +791,8 @@
                     // Draw all block backgrounds first
                     this.blocks.forEach(block => {
                         if (block.end < startTime || block.start > endTime) return;
-                        const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
-                        const w = Math.max(1, ((block.end - block.start) / visibleDuration) * width * this.timelineZoom);
+                        let x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
+                        let w = Math.max(1, ((block.end - block.start) / visibleDuration) * width * this.timelineZoom);
                     
                         ctx.fillStyle = block.color || 'gray';
                         ctx.fillRect(x, 0, w, height - 20);
@@ -805,7 +805,7 @@
                     const markerInterval = Math.max(1, Math.floor(visibleDuration / 10));
                     
                     for (let t = Math.floor(startTime); t <= endTime; t += markerInterval) {
-                        const x = Math.floor(((t - startTime) / visibleDuration) * width) + 0.5;
+                        let x = Math.floor(((t - startTime) / visibleDuration) * width) + 0.5;
                         ctx.moveTo(x, height - 15);
                         ctx.lineTo(x, height);
                     }
@@ -816,7 +816,7 @@
                     ctx.font = '10px monospace';
                     ctx.textAlign = 'center';
                     for (let t = Math.floor(startTime); t <= endTime; t += markerInterval) {
-                        const x = ((t - startTime) / visibleDuration) * width;
+                        let x = ((t - startTime) / visibleDuration) * width;
                         ctx.fillText(this.formatTime(t), x, height - 5);
                     }
                     
@@ -824,8 +824,8 @@
                     ctx.font = 'bold 12px sans-serif';
                     this.blocks.forEach(block => {
                         if (block.end < startTime || block.start > endTime) return;
-                        const x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
-                        const w = ((block.end - block.start) / visibleDuration) * width * this.timelineZoom;
+                        let x = ((block.start - startTime) / visibleDuration) * width * this.timelineZoom;
+                        let w = ((block.end - block.start) / visibleDuration) * width * this.timelineZoom;
                         
                         if (w > 50) {
                             ctx.fillText(block.label, x + 5, height - 30);
@@ -833,7 +833,7 @@
                     });
                     
                     // Draw playhead with anti-aliasing
-                    const playheadX = Math.floor(((this.currentTime - startTime) / visibleDuration) * width * this.timelineZoom) + 0.5;
+                    let playheadX = Math.floor(((this.currentTime - startTime) / visibleDuration) * width * this.timelineZoom) + 0.5;
                     
                     ctx.fillStyle = '#fff';
                     ctx.beginPath();
