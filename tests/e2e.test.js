@@ -30,7 +30,7 @@ test('export video', async ({ page }) => {
 
   // Wait for the export button to be enabled
   const exportButton = page.locator('button:has-text("Export")');
-  await exportButton.waitForElementState('enabled');
+  await exportButton.waitFor({ state: 'enabled' });
 
   await exportButton.click();
   // Add assertions to check for download or other export behavior
