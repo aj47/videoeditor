@@ -294,7 +294,9 @@
                     isOverwriteMode: true,
                     hoverTime: null,
                     hoverTimePosition: 0,
-                    currentFileHandle: null
+                    currentFileHandle: null,
+                    currentBlobUrl: null,
+                    blobRetryCount: 0
                 }
             },
 
@@ -414,7 +416,6 @@
 
                 async onFileSelect(event) {
                     console.log('onFileSelect triggered', event);
-                    let url;
                     try {
                         // Use the selected file from the input
                         const file = event.target.files[0];
@@ -424,13 +425,18 @@
                             throw new Error('File is too large for FFmpeg.wasm (max 2GB)');
                         }
 
-                        // Store the video data for later use
+                        // Clean up old blob URL if it exists
+                        if (this.currentBlobUrl) {
+                            URL.revokeObjectURL(this.currentBlobUrl);
+                            this.currentBlobUrl = null;
+                        }
+
                         // Store the video data for later use
                         this.$refs.videoPlayer._videoData = new Uint8Array(await file.arrayBuffer());
 
-                        // Create URL for video playback
-                        url = URL.createObjectURL(file);
-                        this.$refs.videoPlayer.src = url;
+                        // Create and store new blob URL
+                        this.currentBlobUrl = URL.createObjectURL(file);
+                        this.$refs.videoPlayer.src = this.currentBlobUrl;
                         
                         this.processing = true;
                         this.processingMessage = 'Processing video...';
@@ -613,20 +619,50 @@
                     const videoPlayer = this.$refs.videoPlayer;
                     if (!videoPlayer) return;
 
-                    // Check if video source is valid and recreate if needed
-                    if (!videoPlayer.src || videoPlayer.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
-                        if (videoPlayer._videoData) {
-                            console.log('Recreating blob URL from cached video data');
-                            const blob = new Blob([videoPlayer._videoData], { type: 'video/mp4' });
-                            if (videoPlayer.src) {
-                                URL.revokeObjectURL(videoPlayer.src);
+                    // Enhanced source validation and recreation
+                    const validateSource = async () => {
+                        if (!videoPlayer.src || 
+                            videoPlayer.networkState === HTMLMediaElement.NETWORK_NO_SOURCE ||
+                            videoPlayer.networkState === HTMLMediaElement.NETWORK_ERROR) {
+                            
+                            if (videoPlayer._videoData) {
+                                console.log('Recreating blob URL from cached video data');
+                                // Clean up old blob URL
+                                if (this.currentBlobUrl) {
+                                    URL.revokeObjectURL(this.currentBlobUrl);
+                                }
+                                const blob = new Blob([videoPlayer._videoData], { type: 'video/mp4' });
+                                this.currentBlobUrl = URL.createObjectURL(blob);
+                                videoPlayer.src = this.currentBlobUrl;
+                                this.blobRetryCount++;
+                                
+                                // Wait for video to be ready
+                                await new Promise((resolve, reject) => {
+                                    const timeout = setTimeout(() => reject(new Error('Video load timeout')), 2000);
+                                    videoPlayer.addEventListener('loadedmetadata', () => {
+                                        clearTimeout(timeout);
+                                        resolve();
+                                    }, { once: true });
+                                });
+                                
+                                return true;
+                            } else {
+                                console.error('No valid video source and no cached data');
+                                return false;
                             }
-                            videoPlayer.src = URL.createObjectURL(blob);
-                        } else {
-                            console.error('No valid video source and no cached data');
-                            return;
                         }
-                    }
+                        return true;
+                    };
+
+                    try {
+                        // Attempt to validate/recreate source up to 3 times
+                        let sourceValid = false;
+                        for (let i = 0; i < 3 && !sourceValid; i++) {
+                            sourceValid = await validateSource();
+                            if (!sourceValid && i === 2) {
+                                throw new Error('Failed to establish valid video source after 3 attempts');
+                            }
+                        }
 
                     console.log('playPause triggered, current state:', {
                         paused: videoPlayer.paused,
