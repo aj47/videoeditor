@@ -452,20 +452,23 @@
                         console.error('File processing error:', error);
                         alert(error.message);
                     } finally {
-                        // Ensure processing overlay is removed
-                        this.processing = false;
-                        this.processingMessage = '';
-                        if (this.currentBlobUrl) {
-                            URL.revokeObjectURL(this.currentBlobUrl);
-                        }
+                        // Force processing state to false and clear message
+                        this.$nextTick(() => {
+                            this.processing = false;
+                            this.processingMessage = '';
+                            if (this.currentBlobUrl) {
+                                URL.revokeObjectURL(this.currentBlobUrl);
+                            }
+                        });
                     }
                 },
 
                 async detectSilence(inputFile = 'input.mp4') {
-                    let silenceLog = '';
-                    
-                    // Set up log handler before processing
-                    const logHandler = ({ message }) => {
+                    try {
+                        let silenceLog = '';
+                        
+                        // Set up log handler before processing
+                        const logHandler = ({ message }) => {
                         if (message.includes('silencedetect')) {
                             silenceLog += message + '\n';
                         }
@@ -490,6 +493,9 @@
                         if (event && event.target && event.target instanceof HTMLInputElement) {
                             event.target.blur();
                         }
+                        // Ensure processing state is cleared
+                        this.processing = false;
+                        this.processingMessage = '';
                     }
                 },
 
