@@ -425,8 +425,8 @@
                         }
 
                         // Store the video data for later use
-                        const arrayBuffer = await file.arrayBuffer();
-                        this.$refs.videoPlayer._videoData = new Uint8Array(arrayBuffer);
+                        // Store the video data for later use
+                        this.$refs.videoPlayer._videoData = new Uint8Array(await file.arrayBuffer());
 
                         // Create URL for video playback
                         url = URL.createObjectURL(file);
