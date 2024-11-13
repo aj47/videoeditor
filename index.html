@@ -417,6 +417,9 @@
                 async onFileSelect(event) {
                     console.log('onFileSelect triggered', event);
                     try {
+                        // Initialize blocks array
+                        this.blocks = [];
+                        
                         // Use the selected file from the input
                         const file = event.target.files[0];
                         if (!file) return;
@@ -449,9 +452,11 @@
                         console.error('File processing error:', error);
                         alert(error.message);
                     } finally {
+                        // Ensure processing overlay is removed
                         this.processing = false;
-                        if (url) {
-                            URL.revokeObjectURL(url);
+                        this.processingMessage = '';
+                        if (this.currentBlobUrl) {
+                            URL.revokeObjectURL(this.currentBlobUrl);
                         }
                     }
                 },
@@ -898,6 +903,10 @@
                 },
 
                 previousBlock() {
+                    if (!this.blocks || !this.blocks.length) {
+                        console.warn('No blocks available for navigation');
+                        return;
+                    }
                     const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex, false);
                     if (nextIndex !== null) {
                         const wasPlaying = !this.$refs.videoPlayer.paused;
@@ -910,6 +919,10 @@
                 },
 
                 nextBlock() {
+                    if (!this.blocks || !this.blocks.length) {
+                        console.warn('No blocks available for navigation');
+                        return;
+                    }
                     const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex, true);
                     if (nextIndex !== null) {
                         const wasPlaying = !this.$refs.videoPlayer.paused;
