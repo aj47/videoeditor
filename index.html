@@ -610,64 +610,156 @@
                 },
 
                 async playPause() {
+                    console.log('playPause triggered, current state:', {
+                        paused: this.$refs.videoPlayer.paused,
+                        currentTime: this.$refs.videoPlayer.currentTime,
+                        isPlaying: this.isPlaying,
+                        hasSkipTimer: !!this.skipTimer
+                    });
+
                     try {
                         if (this.$refs.videoPlayer.paused) {
+                            console.log('Attempting to play video');
                             await this.$refs.videoPlayer.play();
+                            console.log('Video play() succeeded');
                             this.isPlaying = true;
-                            this.skipTimer = setInterval(this.skipSilence, 100);
+                            
+                            if (this.skipTimer) {
+                                console.log('Clearing existing skip timer');
+                                clearInterval(this.skipTimer);
+                            }
+                            
+                            console.log('Setting up new skip timer');
+                            this.skipTimer = setInterval(() => {
+                                try {
+                                    this.skipSilence();
+                                } catch (skipError) {
+                                    console.error('Error in skipSilence interval:', skipError);
+                                    clearInterval(this.skipTimer);
+                                    this.skipTimer = null;
+                                }
+                            }, 100);
                         } else {
+                            console.log('Attempting to pause video');
                             this.$refs.videoPlayer.pause();
+                            console.log('Video pause() succeeded');
                             this.isPlaying = false;
                             if (this.skipTimer) {
+                                console.log('Clearing skip timer');
                                 clearInterval(this.skipTimer);
+                                this.skipTimer = null;
                             }
                         }
                     } catch (error) {
-                        console.warn('Playback control error:', error);
+                        console.error('Playback control error:', error);
+                        console.log('Video element state:', {
+                            readyState: this.$refs.videoPlayer.readyState,
+                            networkState: this.$refs.videoPlayer.networkState,
+                            error: this.$refs.videoPlayer.error,
+                            src: this.$refs.videoPlayer.src
+                        });
                         this.isPlaying = this.$refs.videoPlayer.paused;
+                        if (this.skipTimer) {
+                            clearInterval(this.skipTimer);
+                            this.skipTimer = null;
+                        }
                     }
                 },
 
                 skipSilence() {
-                    if (!this.blocks.length) return;
+                    console.log('skipSilence called', {
+                        blocksLength: this.blocks.length,
+                        currentBlockIndex: this.currentBlockIndex,
+                        currentTime: this.$refs.videoPlayer?.currentTime
+                    });
 
-                    const currentTime = this.$refs.videoPlayer.currentTime;
-                    const currentBlock = this.blocks[this.currentBlockIndex];
+                    if (!this.blocks.length) {
+                        console.log('No blocks available, skipping');
+                        return;
+                    }
 
-                    if (!currentBlock) return;
+                    try {
+                        const videoPlayer = this.$refs.videoPlayer;
+                        if (!videoPlayer) {
+                            throw new Error('Video player reference not found');
+                        }
 
-                    if (currentBlock.isSilence || 
-                        (!currentBlock.isSilence && currentBlock.end - currentBlock.start < 0.2)) {
-                        const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex);
-                        if (nextIndex !== null) {
-                            // Store the previous non-silence block's label and color
-                            let labelToApply = 'misc';
-                            let colorToApply = 'green';
-                            
-                            // Look backwards to find the last non-silence block's label
-                            for (let i = this.currentBlockIndex; i >= 0; i--) {
-                                const block = this.blocks[i];
-                                if (!block.isSilence) {
-                                    labelToApply = block.label;
-                                    colorToApply = block.color;
-                                    break;
+                        const currentTime = videoPlayer.currentTime;
+                        const currentBlock = this.blocks[this.currentBlockIndex];
+
+                        console.log('Current block state:', {
+                            blockIndex: this.currentBlockIndex,
+                            currentTime: currentTime,
+                            block: currentBlock
+                        });
+
+                        if (!currentBlock) {
+                            console.log('No current block found');
+                            return;
+                        }
+
+                        if (currentBlock.isSilence || 
+                            (!currentBlock.isSilence && currentBlock.end - currentBlock.start < 0.2)) {
+                            console.log('Block needs skipping:', {
+                                isSilence: currentBlock.isSilence,
+                                duration: currentBlock.end - currentBlock.start
+                            });
+
+                            const nextIndex = this.findNextNonSilenceBlock(this.currentBlockIndex);
+                            console.log('Next block index:', nextIndex);
+
+                            if (nextIndex !== null) {
+                                // Store the previous non-silence block's label and color
+                                let labelToApply = 'misc';
+                                let colorToApply = 'green';
+                                
+                                // Look backwards to find the last non-silence block's label
+                                for (let i = this.currentBlockIndex; i >= 0; i--) {
+                                    const block = this.blocks[i];
+                                    if (!block.isSilence) {
+                                        labelToApply = block.label;
+                                        colorToApply = block.color;
+                                        break;
+                                    }
+                                }
+                                
+                                this.currentBlockIndex = nextIndex;
+                                const nextBlock = this.blocks[nextIndex];
+                                
+                                console.log('Applying previous block settings:', {
+                                    label: labelToApply,
+                                    color: colorToApply,
+                                    nextBlockStart: nextBlock.start
+                                });
+
+                                // If in overwrite mode, apply the previous label to the next block
+                                if (this.isOverwriteMode && !nextBlock.isSilence) {
+                                    nextBlock.label = labelToApply;
+                                    nextBlock.color = colorToApply;
+                                    this.drawTimeline(); // Redraw timeline immediately
+                                }
+                                
+                                // Add small offset to prevent getting stuck at block boundaries
+                                const targetTime = nextBlock.start + 0.05;
+                                console.log(`Setting video time to ${targetTime}`);
+                                
+                                videoPlayer.currentTime = targetTime;
+                            } else {
+                                console.log('No next block found, pausing playback');
+                                videoPlayer.pause();
+                                this.isPlaying = false;
+                                if (this.skipTimer) {
+                                    clearInterval(this.skipTimer);
+                                    this.skipTimer = null;
                                 }
                             }
-                            
-                            this.currentBlockIndex = nextIndex;
-                            const nextBlock = this.blocks[nextIndex];
-                            
-                            // If in overwrite mode, apply the previous label to the next block
-                            if (this.isOverwriteMode && !nextBlock.isSilence) {
-                                nextBlock.label = labelToApply;
-                                nextBlock.color = colorToApply;
-                                this.drawTimeline(); // Redraw timeline immediately
-                            }
-                            
-                            this.$refs.videoPlayer.currentTime = nextBlock.start + 0.05;
-                        } else {
-                            this.$refs.videoPlayer.pause();
-                            this.isPlaying = false;
+                        }
+                    } catch (error) {
+                        console.error('Error in skipSilence:', error);
+                        // Stop the skip timer if there's an error
+                        if (this.skipTimer) {
+                            clearInterval(this.skipTimer);
+                            this.skipTimer = null;
                         }
                     }
                 },
