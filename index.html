@@ -467,6 +467,7 @@
                         ]);
                         
                         this.blocks = this.parseSilenceDetection(silenceLog);
+                        this.drawTimeline(); // Add this line to draw timeline after blocks are created
                     } finally {
                         // Clean up log handler
                         ffmpeg.off('log', logHandler);
@@ -757,6 +758,7 @@
 
                 onVideoLoaded() {
                     this.duration = this.$refs.videoPlayer.duration;
+                    this.drawTimeline(); // Add this line to draw timeline immediately
                 },
 
                 onDurationChange() {
