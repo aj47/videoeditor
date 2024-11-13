@@ -610,27 +610,60 @@
                 },
 
                 async playPause() {
+                    const videoPlayer = this.$refs.videoPlayer;
+                    if (!videoPlayer) return;
+
+                    // Check if video source is valid
+                    if (!videoPlayer.src || videoPlayer.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
+                        console.error('No valid video source');
+                        return;
+                    }
+
                     console.log('playPause triggered, current state:', {
-                        paused: this.$refs.videoPlayer.paused,
-                        currentTime: this.$refs.videoPlayer.currentTime,
+                        paused: videoPlayer.paused,
+                        currentTime: videoPlayer.currentTime,
                         isPlaying: this.isPlaying,
-                        hasSkipTimer: !!this.skipTimer
+                        hasSkipTimer: !!this.skipTimer,
+                        readyState: videoPlayer.readyState,
+                        networkState: videoPlayer.networkState
                     });
 
+                    // Clear existing timer if any
+                    if (this.skipTimer) {
+                        console.log('Clearing existing skip timer');
+                        clearInterval(this.skipTimer);
+                        this.skipTimer = null;
+                    }
+
                     try {
-                        if (this.$refs.videoPlayer.paused) {
+                        if (videoPlayer.paused) {
+                            // Wait for video to be ready
+                            if (videoPlayer.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+                                console.log('Waiting for video to be ready...');
+                                await new Promise((resolve, reject) => {
+                                    const timeoutId = setTimeout(() => {
+                                        reject(new Error('Video load timeout'));
+                                    }, 5000);
+
+                                    videoPlayer.addEventListener('canplay', () => {
+                                        clearTimeout(timeoutId);
+                                        resolve();
+                                    }, { once: true });
+                                });
+                            }
+
                             console.log('Attempting to play video');
-                            await this.$refs.videoPlayer.play();
+                            await videoPlayer.play();
                             console.log('Video play() succeeded');
                             this.isPlaying = true;
                             
-                            if (this.skipTimer) {
-                                console.log('Clearing existing skip timer');
-                                clearInterval(this.skipTimer);
-                            }
-                            
-                            console.log('Setting up new skip timer');
+                            // Set up skip timer only after successful play
                             this.skipTimer = setInterval(() => {
+                                if (videoPlayer.paused || videoPlayer.ended) {
+                                    clearInterval(this.skipTimer);
+                                    this.skipTimer = null;
+                                    return;
+                                }
                                 try {
                                     this.skipSilence();
                                 } catch (skipError) {
@@ -641,27 +674,35 @@
                             }, 100);
                         } else {
                             console.log('Attempting to pause video');
-                            this.$refs.videoPlayer.pause();
+                            videoPlayer.pause();
                             console.log('Video pause() succeeded');
                             this.isPlaying = false;
-                            if (this.skipTimer) {
-                                console.log('Clearing skip timer');
-                                clearInterval(this.skipTimer);
-                                this.skipTimer = null;
-                            }
                         }
                     } catch (error) {
                         console.error('Playback control error:', error);
+                        // Log detailed state for debugging
                         console.log('Video element state:', {
-                            readyState: this.$refs.videoPlayer.readyState,
-                            networkState: this.$refs.videoPlayer.networkState,
-                            error: this.$refs.videoPlayer.error,
-                            src: this.$refs.videoPlayer.src
+                            readyState: videoPlayer.readyState,
+                            networkState: videoPlayer.networkState,
+                            error: videoPlayer.error,
+                            src: videoPlayer.src,
+                            currentTime: videoPlayer.currentTime,
+                            duration: videoPlayer.duration,
+                            paused: videoPlayer.paused,
+                            ended: videoPlayer.ended
                         });
-                        this.isPlaying = this.$refs.videoPlayer.paused;
+
+                        this.isPlaying = videoPlayer.paused;
                         if (this.skipTimer) {
                             clearInterval(this.skipTimer);
                             this.skipTimer = null;
+                        }
+
+                        // Handle specific error cases
+                        if (error.name === 'NotAllowedError') {
+                            console.log('Playback was prevented by browser policy');
+                        } else if (error.name === 'AbortError') {
+                            console.log('Playback was interrupted by another operation');
                         }
                     }
                 },
