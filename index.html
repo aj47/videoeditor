@@ -1077,7 +1077,12 @@
                 },
 
                 async exportVideo() {
+                    console.log('Starting exportVideo method');
+                    console.log('Video source:', this.$refs.videoPlayer.src);
+                    console.log('Total blocks:', this.blocks.length);
+
                     if (!this.blocks.some(block => block.label !== 'to-remove')) {
+                        console.warn('No blocks selected for export');
                         alert("No blocks selected for export!");
                         return;
                     }
@@ -1091,12 +1096,18 @@
                             .filter(block => block.label !== 'to-remove')
                             .map(block => block.label))];
 
+                        console.log('Unique labels for export:', labels);
+
                         const inputVideo = await fetchFile(this.$refs.videoPlayer.src);
+                        console.log('Input video file size:', inputVideo.byteLength, 'bytes');
+                        
                         await ffmpeg.writeFile('input.mp4', inputVideo);
+                        console.log('Input video written to FFmpeg');
 
                         // Process each label separately
                         for (let labelIndex = 0; labelIndex < labels.length; labelIndex++) {
                             const label = labels[labelIndex];
+                            console.log(`Processing label: ${label} (${labelIndex + 1}/${labels.length})`);
                             this.processingMessage = `Processing ${label} clips (${labelIndex + 1}/${labels.length})...`;
 
                             // Group consecutive blocks with the same label
@@ -1117,15 +1128,23 @@
                                 return groups;
                             }, []);
 
+                            console.log(`Label blocks for ${label}:`, labelBlocks);
+
                             // Extract and combine segments for this label
                             for (let i = 0; i < labelBlocks.length; i++) {
                                 const block = labelBlocks[i];
                                 const duration = Math.max(0.1, block.end - block.start);
                                 
+                                console.log(`Processing segment ${i + 1}/${labelBlocks.length} for ${label}:`, {
+                                    start: block.start,
+                                    end: block.end,
+                                    duration: duration
+                                });
+                                
                                 this.processingMessage = `Processing ${label} segment ${i + 1}/${labelBlocks.length}...`;
                                 
                                 // Extract segment with proper encoding settings
-                                await ffmpeg.exec([
+                                const extractCommand = [
                                     '-ss', block.start.toFixed(3),
                                     '-t', duration.toFixed(3),
                                     '-i', 'input.mp4',
@@ -1136,7 +1155,17 @@
                                     '-b:a', '128k',     // Audio bitrate
                                     '-movflags', '+faststart', // Enable fast start for web playback
                                     `segment_${i}.mp4`
-                                ]);
+                                ];
+                                
+                                console.log('FFmpeg extract command:', extractCommand.join(' '));
+                                
+                                try {
+                                    const extractResult = await ffmpeg.exec(extractCommand);
+                                    console.log(`Segment ${i} extraction result:`, extractResult);
+                                } catch (extractError) {
+                                    console.error(`Error extracting segment ${i}:`, extractError);
+                                    throw extractError;
+                                }
                             }
 
                             if (labelBlocks.length > 0) {
@@ -1145,19 +1174,33 @@
                                     `file segment_${i}.mp4`
                                 ).join('\n');
                                 
+                                console.log('Segments list for concat:', segmentsList);
+                                
                                 await ffmpeg.writeFile('segments.txt', segmentsList);
 
                                 // Combine segments with proper encoding
-                                await ffmpeg.exec([
+                                const concatCommand = [
                                     '-f', 'concat',
                                     '-safe', '0',
                                     '-i', 'segments.txt',
                                     '-c', 'copy',  // Copy streams without re-encoding
                                     `output_${label}.mp4`
-                                ]);
+                                ];
+                                
+                                console.log('FFmpeg concat command:', concatCommand.join(' '));
+                                
+                                try {
+                                    const concatResult = await ffmpeg.exec(concatCommand);
+                                    console.log(`Concat result for ${label}:`, concatResult);
+                                } catch (concatError) {
+                                    console.error(`Error concatenating segments for ${label}:`, concatError);
+                                    throw concatError;
+                                }
 
                                 // Download the combined video
                                 const data = await ffmpeg.readFile(`output_${label}.mp4`);
+                                console.log(`Output video size for ${label}:`, data.byteLength, 'bytes');
+                                
                                 const blob = new Blob([data], { type: 'video/mp4' });
                                 const url = URL.createObjectURL(blob);
                                 const a = document.createElement('a');
@@ -1183,12 +1226,20 @@
                         }
 
                     } catch (error) {
-                        console.error('Export error:', error);
+                        console.error('Export error details:', {
+                            message: error.message,
+                            name: error.name,
+                            stack: error.stack
+                        });
                         alert('Error during export: ' + error.message);
                     } finally {
                         this.processing = false;
                         this.processingMessage = '';
-                        await ffmpeg.deleteFile('input.mp4');
+                        try {
+                            await ffmpeg.deleteFile('input.mp4');
+                        } catch (cleanupError) {
+                            console.warn('Error during final cleanup:', cleanupError);
+                        }
                     }
                 }
             }
