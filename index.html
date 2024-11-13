@@ -609,17 +609,22 @@
                     }
                 },
 
-                playPause() {
-                    if (this.$refs.videoPlayer.paused) {
-                        this.$refs.videoPlayer.play();
-                        this.isPlaying = true;
-                        this.skipTimer = setInterval(this.skipSilence, 100);
-                    } else {
-                        this.$refs.videoPlayer.pause();
-                        this.isPlaying = false;
-                        if (this.skipTimer) {
-                            clearInterval(this.skipTimer);
+                async playPause() {
+                    try {
+                        if (this.$refs.videoPlayer.paused) {
+                            await this.$refs.videoPlayer.play();
+                            this.isPlaying = true;
+                            this.skipTimer = setInterval(this.skipSilence, 100);
+                        } else {
+                            this.$refs.videoPlayer.pause();
+                            this.isPlaying = false;
+                            if (this.skipTimer) {
+                                clearInterval(this.skipTimer);
+                            }
                         }
+                    } catch (error) {
+                        console.warn('Playback control error:', error);
+                        this.isPlaying = this.$refs.videoPlayer.paused;
                     }
                 },
 
@@ -1109,13 +1114,6 @@
                         if (this.$refs.videoPlayer._videoData) {
                             console.log('Using cached video data');
                             inputVideo = this.$refs.videoPlayer._videoData;
-                        } else if (this.$refs.videoPlayer.src.startsWith('blob:')) {
-                            console.log('Handling blob URL source');
-                            // Create a new blob URL and store the data
-                            const videoBlob = await fetch(this.$refs.videoPlayer.src).then(r => r.blob());
-                            inputVideo = new Uint8Array(await videoBlob.arrayBuffer());
-                            // Cache the video data for future exports
-                            this.$refs.videoPlayer._videoData = inputVideo;
                         } else {
                             console.log('Handling regular URL source');
                             inputVideo = await fetchFile(this.$refs.videoPlayer.src);
