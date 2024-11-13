@@ -1266,6 +1266,10 @@
                                     !defaultLabels.some(def => def.name === label.name)
                                 )
                             ];
+                        } catch (error) {
+                            console.warn('Error merging custom labels:', error);
+                            // Continue with default labels if custom labels fail to merge
+                        }
                         }
 
                         this.drawTimeline();
