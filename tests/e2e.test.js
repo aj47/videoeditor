@@ -26,6 +26,12 @@ test('export video', async ({ page }) => {
   const fileInput = await page.$('input[type="file"]');
   await fileInput.setInputFiles('./tests/sample.mp4');
   await page.waitForSelector('.range'); // Wait for the timeline to appear
-  await page.click('button:has-text("Export")');
+  await expect(page.locator('.range')).toBeVisible();
+
+  // Wait for the export button to be enabled
+  const exportButton = page.locator('button:has-text("Export")');
+  await exportButton.waitForElementState('enabled');
+
+  await exportButton.click();
   // Add assertions to check for download or other export behavior
 });
