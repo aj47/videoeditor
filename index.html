@@ -478,26 +478,35 @@
                 },
 
                 parseSilenceDetection(output) {
-                    const silenceStarts = [];
-                    const silenceEnds = [];
+                    let silenceStarts = [];
+                    let silenceEnds = [];
                     const lines = output.split('\n');
                     const BUFFER = 0.5; // 500ms buffer
                     const MIN_BLOCK_DURATION = 0.25; // Minimum block duration
 
                     lines.forEach(line => {
-                        if (line.includes('silence_start')) {
-                            const time = parseFloat(line.split('silence_start: ')[1]);
-                            silenceStarts.push(time);
-                        } else if (line.includes('silence_end')) {
-                            const time = parseFloat(line.split('silence_end: ')[1]);
-                            silenceEnds.push(time);
+                        const startMatch = line.match(/silence_start: (\d+\.\d+)/);
+                        const endMatch = line.match(/silence_end: (\d+\.\d+)/);
+                        
+                        if (startMatch) {
+                            silenceStarts.push(parseFloat(startMatch[1]));
+                        }
+                        if (endMatch) {
+                            silenceEnds.push(parseFloat(endMatch[1]));
                         }
                     });
+
+                    // Ensure silenceStarts and silenceEnds are sorted and match
+                    silenceStarts = silenceStarts.sort((a, b) => a - b);
+                    silenceEnds = silenceEnds.sort((a, b) => a - b);
 
                     const blocks = [];
                     let currentTime = 0;
 
                     silenceStarts.forEach((start, i) => {
+                        // Ensure we have a corresponding end time
+                        if (i >= silenceEnds.length) return;
+
                         // Add buffer to block boundaries
                         // Calculate initial block boundaries
                         let blockStart = Math.max(0, start - BUFFER);
