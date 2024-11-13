@@ -13,7 +13,7 @@ export default {
     };
 
     // Serve static files from the bucket
-    return env.ASSETS.fetch(request.url, {
+    return env.ASSETS.fetch(new Request(request.url, request), {
       headers: headers
     });
   }

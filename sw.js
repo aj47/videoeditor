@@ -1,9 +1,9 @@
 const CACHE_NAME = 'video-editor-v1';
 const urlsToCache = [
   '/',
-  '/index.html',
-  '/style.css',
-  '/manifest.json',
+  '/public/index.html',
+  '/public/style.css',
+  '/public/manifest.json',
   '/assets/ffmpeg/package/dist/umd/ffmpeg.js',
   '/assets/util/package/dist/umd/index.js'
 ];
