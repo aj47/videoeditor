@@ -613,10 +613,19 @@
                     const videoPlayer = this.$refs.videoPlayer;
                     if (!videoPlayer) return;
 
-                    // Check if video source is valid
+                    // Check if video source is valid and recreate if needed
                     if (!videoPlayer.src || videoPlayer.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) {
-                        console.error('No valid video source');
-                        return;
+                        if (videoPlayer._videoData) {
+                            console.log('Recreating blob URL from cached video data');
+                            const blob = new Blob([videoPlayer._videoData], { type: 'video/mp4' });
+                            if (videoPlayer.src) {
+                                URL.revokeObjectURL(videoPlayer.src);
+                            }
+                            videoPlayer.src = URL.createObjectURL(blob);
+                        } else {
+                            console.error('No valid video source and no cached data');
+                            return;
+                        }
                     }
 
                     console.log('playPause triggered, current state:', {
@@ -637,19 +646,42 @@
 
                     try {
                         if (videoPlayer.paused) {
-                            // Wait for video to be ready
-                            if (videoPlayer.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-                                console.log('Waiting for video to be ready...');
-                                await new Promise((resolve, reject) => {
-                                    const timeoutId = setTimeout(() => {
-                                        reject(new Error('Video load timeout'));
-                                    }, 5000);
+                            // Enhanced video ready check with multiple attempts
+                            let attempts = 0;
+                            const maxAttempts = 3;
+                            
+                            while (videoPlayer.readyState < HTMLMediaElement.HAVE_CURRENT_DATA && attempts < maxAttempts) {
+                                console.log(`Waiting for video to be ready (attempt ${attempts + 1}/${maxAttempts})...`);
+                                try {
+                                    await new Promise((resolve, reject) => {
+                                        const timeoutId = setTimeout(() => {
+                                            reject(new Error('Video load timeout'));
+                                        }, 2000); // Shorter timeout per attempt
 
-                                    videoPlayer.addEventListener('canplay', () => {
-                                        clearTimeout(timeoutId);
-                                        resolve();
-                                    }, { once: true });
-                                });
+                                        const handleCanPlay = () => {
+                                            clearTimeout(timeoutId);
+                                            videoPlayer.removeEventListener('canplay', handleCanPlay);
+                                            resolve();
+                                        };
+
+                                        videoPlayer.addEventListener('canplay', handleCanPlay);
+                                    });
+                                    break; // Success, exit loop
+                                } catch (timeoutError) {
+                                    attempts++;
+                                    if (attempts >= maxAttempts) {
+                                        throw new Error('Video failed to load after multiple attempts');
+                                    }
+                                    // Recreate blob URL on timeout
+                                    if (videoPlayer._videoData) {
+                                        console.log('Recreating blob URL after timeout');
+                                        const blob = new Blob([videoPlayer._videoData], { type: 'video/mp4' });
+                                        if (videoPlayer.src) {
+                                            URL.revokeObjectURL(videoPlayer.src);
+                                        }
+                                        videoPlayer.src = URL.createObjectURL(blob);
+                                    }
+                                }
                             }
 
                             console.log('Attempting to play video');
@@ -698,11 +730,18 @@
                             this.skipTimer = null;
                         }
 
-                        // Handle specific error cases
+                        // Enhanced error handling with recovery attempts
                         if (error.name === 'NotAllowedError') {
                             console.log('Playback was prevented by browser policy');
                         } else if (error.name === 'AbortError') {
                             console.log('Playback was interrupted by another operation');
+                        } else if (videoPlayer._videoData && error.message.includes('load')) {
+                            console.log('Attempting to recover from load error by recreating blob URL');
+                            const blob = new Blob([videoPlayer._videoData], { type: 'video/mp4' });
+                            if (videoPlayer.src) {
+                                URL.revokeObjectURL(videoPlayer.src);
+                            }
+                            videoPlayer.src = URL.createObjectURL(blob);
                         }
                     }
                 },
