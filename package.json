@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
+    "test": "npx playwright test",
     "dev": "wrangler pages dev .",
     "deploy": "wrangler pages deploy ."
   },
