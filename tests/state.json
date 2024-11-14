@@ -1,0 +1,62 @@
+{
+  "videoPath": "blob:http://127.0.0.1:8788/5d4cc1d9-84b0-453d-8493-9aa5091d967e",
+  "blocks": [
+    {
+      "start": 0,
+      "end": 0.5543800000000001,
+      "isSilence": false,
+      "visited": false,
+      "label": "misc",
+      "color": "green"
+    },
+    {
+      "start": 0.5543800000000001,
+      "end": 1.8015,
+      "isSilence": true,
+      "visited": false,
+      "label": "to-remove",
+      "color": "red"
+    },
+    {
+      "start": 1.1281,
+      "end": 2.2621700000000002,
+      "isSilence": true,
+      "visited": false,
+      "label": "to-remove",
+      "color": "red"
+    },
+    {
+      "start": 1.27767,
+      "end": 2.4013999999999998,
+      "isSilence": true,
+      "visited": false,
+      "label": "to-remove",
+      "color": "red"
+    },
+    {
+      "start": 2.4013999999999998,
+      "end": 6.39087,
+      "isSilence": false,
+      "visited": false,
+      "label": "misc",
+      "color": "green"
+    },
+    {
+      "start": 6.39087,
+      "end": 7.52433,
+      "isSilence": true,
+      "visited": false,
+      "label": "to-remove",
+      "color": "red"
+    },
+    {
+      "start": 6.12025,
+      "end": 7.866667,
+      "isSilence": true,
+      "visited": false,
+      "label": "to-remove",
+      "color": "red"
+    }
+  ],
+  "labels": []
+}
