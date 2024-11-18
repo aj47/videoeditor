@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "test": "npx playwright test",
+    "test": "cypress run",
+    "cypress:open": "cypress open",
     "dev": "wrangler pages dev .",
     "deploy": "wrangler pages deploy ."
   },
@@ -17,6 +18,7 @@
     "tar": "^6.1.15"
   },
   "devDependencies": {
+    "cypress": "^13.6.0",
     "wrangler": "^3.28.1"
   }
 }
