@@ -7,7 +7,7 @@
     "start": "node server.js",
     "test": "cypress run",
     "cypress:open": "cypress open",
-    "dev": "wrangler pages dev .",
+    "dev": "wrangler pages dev . --port 3000",
     "deploy": "wrangler pages deploy ."
   },
   "author": "Jerome Wu <jeromewus@gmail.com>",

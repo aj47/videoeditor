@@ -1,6 +1,6 @@
 describe('Video Block Editor', () => {
   beforeEach(() => {
-    cy.visit('http://localhost:8788')
+    cy.visit('http://localhost:3000')
   })
 
   it('shows correct title', () => {
